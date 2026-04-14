@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment variables (NUNCA subir para o GitHub)
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+
+# Uploads (arquivos de usuários)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Prisma
+backend/prisma/migrations/

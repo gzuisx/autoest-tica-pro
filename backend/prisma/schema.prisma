@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── TENANT (cada estética automotiva é um tenant) ───────────────────────────
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  phone       String?
+  email       String?
+  address     String?
+  logoUrl     String?
+  plan        String   @default("basic") // basic | pro
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users         User[]
+  clients       Client[]
+  vehicles      Vehicle[]
+  services      Service[]
+  schedules     Schedule[]
+  quotes        Quote[]
+  serviceOrders ServiceOrder[]
+  payments      Payment[]
+  photos        Photo[]
+}
+
+// ─── USUÁRIOS ────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  email        String
+  passwordHash String
+  role                String    @default("attendant") // admin | attendant | technician | financial
+  active              Boolean   @default(true)
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  schedules     Schedule[]
+  serviceOrders ServiceOrder[]
+
+  @@unique([tenantId, email])
+}
+
+// ─── CLIENTES ────────────────────────────────────────────────────────────────
+
+model Client {
+  id                 String    @id @default(uuid())
+  tenantId           String
+  registrationNumber Int?
+  name               String
+  phone              String
+  whatsapp           String?
+  email              String?
+  cpf                String?
+  rg                 String?
+  birthDate          DateTime?
+  origin             String?   // indicacao | instagram | google | etc
+  notes              String?
+  acceptsPromo       Boolean   @default(true)
+  // Endereço
+  zipCode            String?
+  street             String?
+  addressNumber      String?
+  neighborhood       String?
+  city               String?
+  state              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  vehicles      Vehicle[]
+  schedules     Schedule[]
+  quotes        Quote[]
+  serviceOrders ServiceOrder[]
+}
+
+// ─── VEÍCULOS ────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id        String   @id @default(uuid())
+  tenantId  String
+  clientId  String
+  brand     String
+  model     String
+  year      Int?
+  color     String?
+  plate     String?
+  chassis   String?
+  mileage   Int?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  client        Client         @relation(fields: [clientId], references: [id])
+  schedules     Schedule[]
+  quotes        Quote[]
+  serviceOrders ServiceOrder[]
+  photos        Photo[]
+}
+
+// ─── SERVIÇOS (catálogo) ──────────────────────────────────────────────────────
+
+model Service {
+  id                String   @id @default(uuid())
+  tenantId          String
+  name              String
+  description       String?
+  basePrice         Float
+  estimatedMinutes  Int      @default(60)
+  category          String?
+  recurrenceDays    Int?     // sugestão de retorno em dias
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  scheduleItems ScheduleService[]
+  quoteItems    QuoteItem[]
+}
+
+// ─── AGENDA ───────────────────────────────────────────────────────────────────
+
+model Schedule {
+  id          String   @id @default(uuid())
+  tenantId    String
+  clientId    String
+  vehicleId   String
+  userId      String?
+  dateTime    DateTime
+  endDateTime DateTime?
+  status      String   @default("scheduled")
+  // scheduled | confirmed | in_progress | completed | cancelled | no_show
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  client   Client            @relation(fields: [clientId], references: [id])
+  vehicle  Vehicle           @relation(fields: [vehicleId], references: [id])
+  user     User?             @relation(fields: [userId], references: [id])
+  services ScheduleService[]
+}
+
+model ScheduleService {
+  id         String   @id @default(uuid())
+  scheduleId String
+  serviceId  String
+  price      Float
+  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+  service    Service  @relation(fields: [serviceId], references: [id])
+}
+
+// ─── ORÇAMENTOS ───────────────────────────────────────────────────────────────
+
+model Quote {
+  id         String    @id @default(uuid())
+  tenantId   String
+  clientId   String
+  vehicleId  String
+  number     Int
+  status     String    @default("pending")
+  // pending | approved | rejected | expired
+  totalValue Float
+  discount   Float     @default(0)
+  validUntil DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id])
+  client   Client      @relation(fields: [clientId], references: [id])
+  vehicle  Vehicle     @relation(fields: [vehicleId], references: [id])
+  items    QuoteItem[]
+  serviceOrders ServiceOrder[]
+}
+
+model QuoteItem {
+  id          String  @id @default(uuid())
+  quoteId     String
+  serviceId   String?
+  description String
+  price       Float
+  quantity    Int     @default(1)
+
+  quote   Quote    @relation(fields: [quoteId], references: [id])
+  service Service? @relation(fields: [serviceId], references: [id])
+}
+
+// ─── ORDEM DE SERVIÇO ─────────────────────────────────────────────────────────
+
+model ServiceOrder {
+  id         String    @id @default(uuid())
+  tenantId   String
+  clientId   String
+  vehicleId  String
+  quoteId    String?
+  userId     String?
+  number     Int
+  status     String    @default("open")
+  // open | in_progress | completed | cancelled
+  finalValue Float
+  notes      String?
+  // checklist JSON: riscos, manchas, combustível, km, objetos, estado_geral
+  checklist  String?
+  kmEntry     Int?
+  damageMap   String?   // JSON: pontos de dano marcados na silhueta
+  completedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  client   Client     @relation(fields: [clientId], references: [id])
+  vehicle  Vehicle    @relation(fields: [vehicleId], references: [id])
+  quote    Quote?     @relation(fields: [quoteId], references: [id])
+  user     User?      @relation(fields: [userId], references: [id])
+  payments      Payment[]
+  photos        Photo[]
+  statusHistory ServiceOrderStatusHistory[]
+}
+
+// ─── HISTÓRICO DE STATUS DA OS ────────────────────────────────────────────────
+
+model ServiceOrderStatusHistory {
+  id             String   @id @default(uuid())
+  serviceOrderId String
+  fromStatus     String?
+  toStatus       String
+  userId         String?
+  userName       String?
+  createdAt      DateTime @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+}
+
+// ─── PAGAMENTOS ───────────────────────────────────────────────────────────────
+
+model Payment {
+  id             String   @id @default(uuid())
+  tenantId       String
+  serviceOrderId String
+  amount         Float
+  method         String
+  // pix | cash | credit_card | debit_card | transfer
+  installments   Int?     // parcelas (apenas cartão de crédito)
+  status         String   @default("received")
+  // received | pending | refunded
+  paidAt         DateTime @default(now())
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+}
+
+// ─── FOTOS ────────────────────────────────────────────────────────────────────
+
+model Photo {
+  id             String   @id @default(uuid())
+  tenantId       String
+  serviceOrderId String?
+  vehicleId      String?
+  type           String
+  // before | after | vehicle | other
+  url            String
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  serviceOrder ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+  vehicle      Vehicle?      @relation(fields: [vehicleId], references: [id])
+}
