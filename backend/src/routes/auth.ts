@@ -2,10 +2,19 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
 
 export const authRouter = Router();
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 5,
+  message: { error: 'Muitas tentativas. Aguarde 1 hora antes de tentar novamente.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const registerSchema = z.object({
   tenantName: z.string().min(2, 'Nome da estética muito curto'),
@@ -131,7 +140,7 @@ authRouter.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/forgot-password
-authRouter.post('/forgot-password', async (req, res) => {
+authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { slug, email } = req.body;
   if (!slug || !email) {
     res.status(400).json({ error: 'Slug e e-mail são obrigatórios' });
@@ -154,16 +163,17 @@ authRouter.post('/forgot-password', async (req, res) => {
     return;
   }
 
-  const token = randomBytes(32).toString('hex');
-  const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordResetToken: token, passwordResetExpiry: expiry },
+    data: { passwordResetToken: tokenHash, passwordResetExpiry: expiry },
   });
 
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+  const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
   // Em produção: enviar por e-mail. Por ora, retorna no dev.
   console.log(`[DEV] Link de recuperação: ${resetUrl}`);
@@ -182,9 +192,10 @@ authRouter.post('/reset-password', async (req, res) => {
     return;
   }
 
+  const tokenHash = createHash('sha256').update(token).digest('hex');
   const user = await prisma.user.findFirst({
     where: {
-      passwordResetToken: token,
+      passwordResetToken: tokenHash,
       passwordResetExpiry: { gt: new Date() },
     },
   });

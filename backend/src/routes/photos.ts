@@ -9,18 +9,41 @@ import { authenticate } from '../middleware/auth';
 export const photosRouter = Router();
 photosRouter.use(authenticate);
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || './uploads');
 
 // Garantir que o diretório existe
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+// Magic bytes das extensões permitidas
+const MAGIC_BYTES: Record<string, Buffer[]> = {
+  jpg: [Buffer.from([0xff, 0xd8, 0xff])],
+  png: [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+  webp: [Buffer.from('RIFF')], // RIFF....WEBP — checamos posição 8 também
+};
+
+function isValidImageMagicBytes(filePath: string): boolean {
+  const fd = fs.openSync(filePath, 'r');
+  const buf = Buffer.alloc(12);
+  fs.readSync(fd, buf, 0, 12, 0);
+  fs.closeSync(fd);
+
+  // JPEG
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  // PNG
+  if (buf.slice(0, 8).equals(MAGIC_BYTES.png[0])) return true;
+  // WebP: RIFF....WEBP
+  if (buf.slice(0, 4).equals(MAGIC_BYTES.webp[0]) && buf.slice(8, 12).equals(Buffer.from('WEBP'))) return true;
+
+  return false;
+}
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${uuidv4()}${ext}`);
+  filename: (_req, _file, cb) => {
+    // Sempre UUID sem extensão original — o tipo real é validado pelos magic bytes
+    cb(null, `${uuidv4()}.img`);
   },
 });
 
@@ -28,9 +51,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Apenas imagens JPG, PNG e WebP são permitidas'));
@@ -46,11 +68,26 @@ photosRouter.post('/upload', upload.array('photos', 10), async (req, res) => {
     return;
   }
 
+  // Validar magic bytes de cada arquivo e remover os inválidos
+  const validFiles: Express.Multer.File[] = [];
+  for (const file of files) {
+    if (isValidImageMagicBytes(file.path)) {
+      validFiles.push(file);
+    } else {
+      fs.unlinkSync(file.path); // Remove arquivo inválido
+    }
+  }
+
+  if (validFiles.length === 0) {
+    res.status(400).json({ error: 'Nenhum arquivo de imagem válido enviado' });
+    return;
+  }
+
   const { serviceOrderId, vehicleId, type = 'other' } = req.body;
   const tenantId = req.user!.tenantId;
 
   const photos = await Promise.all(
-    files.map((file) =>
+    validFiles.map((file) =>
       prisma.photo.create({
         data: {
           tenantId,
@@ -76,8 +113,15 @@ photosRouter.delete('/:id', async (req, res) => {
     return;
   }
 
-  // Remove arquivo do disco
-  const filePath = path.join(process.cwd(), photo.url);
+  // Proteção contra path traversal: garantir que o arquivo está dentro de UPLOAD_DIR
+  const filename = path.basename(photo.url);
+  const filePath = path.resolve(UPLOAD_DIR, filename);
+
+  if (!filePath.startsWith(UPLOAD_DIR + path.sep) && filePath !== UPLOAD_DIR) {
+    res.status(400).json({ error: 'Caminho de arquivo inválido' });
+    return;
+  }
+
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }

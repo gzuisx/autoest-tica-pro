@@ -55,19 +55,32 @@ tenantRouter.get('/users', requireRole('admin'), async (req, res) => {
   res.json(users);
 });
 
+const createUserSchema = z.object({
+  name: z.string().min(2, 'Nome muito curto').max(100),
+  email: z.string().email('E-mail inválido').max(255),
+  password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(128),
+  role: z.enum(['admin', 'attendant', 'technician', 'financial'], {
+    errorMap: () => ({ message: 'Role inválido' }),
+  }),
+});
+
 // POST /api/tenant/users
 tenantRouter.post('/users', requireRole('admin'), async (req, res) => {
-  const { name, email, password, role } = req.body;
-  const bcrypt = await import('bcryptjs');
-  const passwordHash = await bcrypt.hash(password, 12);
-
   try {
+    const data = createUserSchema.parse(req.body);
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.hash(data.password, 12);
+
     const user = await prisma.user.create({
-      data: { tenantId: req.user!.tenantId, name, email, passwordHash, role: role || 'attendant' },
+      data: { tenantId: req.user!.tenantId, name: data.name, email: data.email, passwordHash, role: data.role },
       select: { id: true, name: true, email: true, role: true, active: true },
     });
     res.status(201).json(user);
-  } catch {
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.errors[0].message });
+      return;
+    }
     res.status(409).json({ error: 'E-mail já cadastrado nesta estética' });
   }
 });
