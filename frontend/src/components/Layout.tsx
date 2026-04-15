@@ -5,7 +5,9 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { usePlanUsage } from '../hooks/usePlanUsage'
 import { cn } from '../lib/utils'
+import PlanWarningBanner from './PlanWarningBanner'
 
 const ALL_NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'attendant', 'financial'] },
@@ -28,6 +30,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Layout() {
   const { user, tenant, logout } = useAuth()
+  const { data: planUsage } = usePlanUsage()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navItems = ALL_NAV_ITEMS.filter((item) =>
@@ -114,6 +117,9 @@ export default function Layout() {
           </button>
           <span className="font-semibold text-foreground">{tenant?.name}</span>
         </header>
+
+        {/* Plan warning banner */}
+        {planUsage && <PlanWarningBanner usage={planUsage} />}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">

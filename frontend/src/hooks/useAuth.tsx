@@ -22,9 +22,17 @@ interface AuthState {
   isLoading: boolean
 }
 
+interface SessionData {
+  accessToken: string
+  refreshToken: string
+  user: User
+  tenant: Tenant
+}
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, slug: string) => Promise<void>
   logout: () => void
+  setSession: (data: SessionData) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -62,6 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ user: data.user, tenant: data.tenant, isAuthenticated: true, isLoading: false })
   }
 
+  function setSession(data: SessionData) {
+    localStorage.setItem('accessToken', data.accessToken)
+    localStorage.setItem('refreshToken', data.refreshToken)
+    localStorage.setItem('user', JSON.stringify(data.user))
+    localStorage.setItem('tenant', JSON.stringify(data.tenant))
+    setState({ user: data.user, tenant: data.tenant, isAuthenticated: true, isLoading: false })
+  }
+
   function logout() {
     localStorage.clear()
     setState({ user: null, tenant: null, isAuthenticated: false, isLoading: false })
@@ -69,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, logout, setSession }}>
       {children}
     </AuthContext.Provider>
   )

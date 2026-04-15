@@ -26,7 +26,12 @@ export default function LoginPage() {
       await login(data.email, data.password, data.slug)
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Erro ao fazer login')
+      const responseData = err?.response?.data
+      if (responseData?.pendingVerification) {
+        navigate(`/verify-email?email=${encodeURIComponent(responseData.email || data.email)}`)
+        return
+      }
+      setError(responseData?.error || 'Erro ao fazer login')
     } finally {
       setLoading(false)
     }

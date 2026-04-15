@@ -4,6 +4,8 @@ import { Plus, Search, MessageCircle, ChevronRight, X, Pencil, Car, ClipboardLis
 import { useForm } from 'react-hook-form'
 import api from '../services/api'
 import { formatPhone, formatDate, formatCurrency, STATUS_LABELS, STATUS_COLORS, cn, getErrorMessage } from '../lib/utils'
+import { usePlanLimit, handleLimitError } from '../hooks/usePlanLimit'
+import { usePlanUsage } from '../hooks/usePlanUsage'
 
 interface ClientForm {
   name: string
@@ -37,6 +39,8 @@ function formatRegNum(n?: number) {
 
 function ClientModal({ client, onClose }: { client?: any; onClose: () => void }) {
   const qc = useQueryClient()
+  const { showUpgradeModal, refreshUsage } = usePlanLimit()
+  const { data: planUsage } = usePlanUsage()
   const [cepLoading, setCepLoading] = useState(false)
   const {
     register,
@@ -52,7 +56,13 @@ function ClientModal({ client, onClose }: { client?: any; onClose: () => void })
       client ? api.put(`/clients/${client.id}`, data) : api.post('/clients', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] })
+      refreshUsage()
       onClose()
+    },
+    onError: (err: any) => {
+      if (!client) {
+        handleLimitError(err, showUpgradeModal, planUsage?.plan ?? 'basic', planUsage?.monthly ?? false)
+      }
     },
   })
 

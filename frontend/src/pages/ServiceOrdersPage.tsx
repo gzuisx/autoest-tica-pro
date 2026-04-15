@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { usePlanLimit, handleLimitError } from '../hooks/usePlanLimit'
+import { usePlanUsage } from '../hooks/usePlanUsage'
 import {
   Plus, ClipboardList, X, DollarSign, Eye, Camera, Trash2, Save,
   MessageCircle, Printer, Search, Pencil, ChevronDown, Ban,
@@ -28,6 +30,8 @@ function formatRegNum(n?: number) {
 
 function NewOrderModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
+  const { showUpgradeModal, refreshUsage } = usePlanLimit()
+  const { data: planUsage } = usePlanUsage()
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<any>({ defaultValues: {} })
   const selectedClientId = watch('clientId')
 
@@ -46,7 +50,10 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: (data: any) =>
       api.post('/service-orders', { ...data, finalValue: Number(data.finalValue), kmEntry: data.kmEntry ? Number(data.kmEntry) : undefined }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['service-orders'] }); onClose() },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['service-orders'] }); refreshUsage(); onClose() },
+    onError: (err: any) => {
+      handleLimitError(err, showUpgradeModal, planUsage?.plan ?? 'basic', planUsage?.monthly ?? false)
+    },
   })
 
   return (

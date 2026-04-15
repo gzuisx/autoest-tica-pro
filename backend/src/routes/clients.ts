@@ -4,6 +4,7 @@ import { prisma } from '../utils/prisma';
 import { authenticate, requireRole } from '../middleware/auth';
 import { waLinkReturnReminder, waLinkBirthday } from '../utils/whatsapp';
 import * as audit from '../utils/auditLog';
+import { checkLimit, PlanType } from '../utils/planLimits';
 
 export const clientsRouter = Router();
 clientsRouter.use(authenticate);
@@ -117,8 +118,23 @@ clientsRouter.get('/:id', async (req, res) => {
 // POST /api/clients — admin e atendente
 clientsRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => {
   try {
-    const data = clientSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
+
+    // Verifica limite do plano
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
+    const limitCheck = await checkLimit(tenantId, (tenant?.plan || 'basic') as PlanType, 'clients');
+    if (!limitCheck.allowed) {
+      res.status(402).json({
+        error: 'Limite de clientes atingido para o seu plano.',
+        limitExceeded: true,
+        resource: 'clients',
+        used: limitCheck.used,
+        limit: limitCheck.limit,
+      });
+      return;
+    }
+
+    const data = clientSchema.parse(req.body);
     const registrationNumber = await getNextRegistrationNumber(tenantId);
 
     const client = await prisma.client.create({

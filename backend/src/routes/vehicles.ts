@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate, requireRole } from '../middleware/auth';
 import * as audit from '../utils/auditLog';
+import { checkLimit, PlanType } from '../utils/planLimits';
 
 export const vehiclesRouter = Router();
 vehiclesRouter.use(authenticate);
@@ -77,6 +78,20 @@ vehiclesRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => 
   try {
     const data = vehicleSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
+
+    // Verifica limite do plano
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
+    const limitCheck = await checkLimit(tenantId, (tenant?.plan || 'basic') as PlanType, 'vehicles');
+    if (!limitCheck.allowed) {
+      res.status(402).json({
+        error: 'Limite de veículos atingido para o seu plano.',
+        limitExceeded: true,
+        resource: 'vehicles',
+        used: limitCheck.used,
+        limit: limitCheck.limit,
+      });
+      return;
+    }
 
     const client = await prisma.client.findFirst({ where: { id: data.clientId, tenantId } });
     if (!client) {

@@ -30,6 +30,7 @@ async function seed() {
           email: 'admin@demo.com',
           passwordHash,
           role: 'admin',
+          emailVerified: true, // conta demo já verificada
         },
       },
       services: {

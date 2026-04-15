@@ -5,11 +5,13 @@ import { z } from 'zod';
 import { randomBytes, createHash } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
-import { sendPasswordResetEmail } from '../utils/email';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../utils/email';
 import { authenticate } from '../middleware/auth';
 import * as audit from '../utils/auditLog';
 
 export const authRouter = Router();
+
+// ─── Rate limiters ────────────────────────────────────────────────────────────
 
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -18,6 +20,16 @@ const forgotPasswordLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const verificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: 'Muitas tentativas. Aguarde antes de tentar novamente.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
   tenantName: z.string().min(2, 'Nome da estética muito curto'),
@@ -36,6 +48,8 @@ const loginSchema = z.object({
 
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function generateAccessToken(payload: { userId: string; tenantId: string; role: string; email: string }) {
   return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '8h' });
 }
@@ -44,11 +58,7 @@ async function createRefreshToken(userId: string, tenantId: string): Promise<str
   const rawToken = randomBytes(40).toString('hex');
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
-
-  await prisma.refreshToken.create({
-    data: { tokenHash, userId, tenantId, expiresAt },
-  });
-
+  await prisma.refreshToken.create({ data: { tokenHash, userId, tenantId, expiresAt } });
   return rawToken;
 }
 
@@ -57,7 +67,15 @@ async function revokeRefreshToken(rawToken: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { tokenHash } }).catch(() => {});
 }
 
-// POST /api/auth/register
+/** Gera código de 6 dígitos e retorna { code, codeHash } */
+function generateVerificationCode(): { code: string; codeHash: string } {
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const codeHash = createHash('sha256').update(code).digest('hex');
+  return { code, codeHash };
+}
+
+// ─── POST /api/auth/register ──────────────────────────────────────────────────
+
 authRouter.post('/register', async (req, res) => {
   try {
     const data = registerSchema.parse(req.body);
@@ -69,6 +87,8 @@ authRouter.post('/register', async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(data.password, 12);
+    const { code, codeHash } = generateVerificationCode();
+    const verificationExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
 
     const tenant = await prisma.tenant.create({
       data: {
@@ -82,6 +102,9 @@ authRouter.post('/register', async (req, res) => {
             email: data.email,
             passwordHash,
             role: 'admin',
+            emailVerified: false,
+            emailVerificationCode: codeHash,
+            emailVerificationExpiry: verificationExpiry,
           },
         },
       },
@@ -89,30 +112,14 @@ authRouter.post('/register', async (req, res) => {
     });
 
     const user = tenant.users[0];
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      tenantId: tenant.id,
-      role: user.role,
-      email: user.email,
-    });
-    const refreshToken = await createRefreshToken(user.id, tenant.id);
 
-    await audit.log({
-      tenantId: tenant.id,
-      userId: user.id,
-      userName: user.name,
-      action: 'LOGIN',
-      entity: 'user',
-      entityId: user.id,
-      details: { event: 'register' },
-    });
+    // Envia e-mail com código (em dev apenas loga no console)
+    await sendVerificationEmail({ to: user.email, name: user.name, code });
 
     res.status(201).json({
-      message: 'Estética cadastrada com sucesso!',
-      tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      accessToken,
-      refreshToken,
+      message: 'Conta criada! Verifique seu e-mail para ativar o acesso.',
+      pendingVerification: true,
+      email: user.email,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -124,7 +131,107 @@ authRouter.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
+// ─── POST /api/auth/verify-email ─────────────────────────────────────────────
+
+authRouter.post('/verify-email', verificationLimiter, async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    res.status(400).json({ error: 'E-mail e código são obrigatórios' });
+    return;
+  }
+
+  const codeHash = createHash('sha256').update(String(code)).digest('hex');
+
+  const user = await prisma.user.findFirst({
+    where: {
+      email: String(email),
+      emailVerificationCode: codeHash,
+      emailVerificationExpiry: { gt: new Date() },
+      emailVerified: false,
+    },
+    include: { tenant: true },
+  });
+
+  if (!user) {
+    res.status(400).json({ error: 'Código inválido ou expirado. Solicite um novo.' });
+    return;
+  }
+
+  // Ativa a conta
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpiry: null,
+    },
+  });
+
+  // Gera tokens e faz login automático após verificação
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    tenantId: user.tenantId,
+    role: user.role,
+    email: user.email,
+  });
+  const refreshToken = await createRefreshToken(user.id, user.tenantId);
+
+  await audit.log({
+    tenantId: user.tenantId,
+    userId: user.id,
+    userName: user.name,
+    action: 'LOGIN',
+    entity: 'user',
+    entityId: user.id,
+    details: { event: 'email_verified' },
+  });
+
+  res.json({
+    message: 'E-mail verificado com sucesso! Bem-vindo.',
+    tenant: { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug, logoUrl: user.tenant.logoUrl },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    accessToken,
+    refreshToken,
+  });
+});
+
+// ─── POST /api/auth/resend-verification ──────────────────────────────────────
+
+authRouter.post('/resend-verification', verificationLimiter, async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ error: 'E-mail é obrigatório' });
+    return;
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { email: String(email), emailVerified: false },
+  });
+
+  // Resposta genérica para não revelar se o e-mail existe
+  const genericMsg = { message: 'Se o e-mail existir, um novo código foi enviado.' };
+
+  if (!user) {
+    res.json(genericMsg);
+    return;
+  }
+
+  const { code, codeHash } = generateVerificationCode();
+  const verificationExpiry = new Date(Date.now() + 30 * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { emailVerificationCode: codeHash, emailVerificationExpiry: verificationExpiry },
+  });
+
+  await sendVerificationEmail({ to: user.email, name: user.name, code });
+
+  res.json(genericMsg);
+});
+
+// ─── POST /api/auth/login ─────────────────────────────────────────────────────
+
 authRouter.post('/login', async (req, res) => {
   try {
     const data = loginSchema.parse(req.body);
@@ -147,6 +254,16 @@ authRouter.post('/login', async (req, res) => {
     const passwordMatch = await bcrypt.compare(data.password, user.passwordHash);
     if (!passwordMatch) {
       res.status(401).json({ error: 'Credenciais inválidas' });
+      return;
+    }
+
+    // Bloqueia login se e-mail não verificado
+    if (!user.emailVerified) {
+      res.status(403).json({
+        error: 'E-mail não verificado. Verifique sua caixa de entrada.',
+        pendingVerification: true,
+        email: user.email,
+      });
       return;
     }
 
@@ -182,12 +299,11 @@ authRouter.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
+// ─── POST /api/auth/logout ────────────────────────────────────────────────────
+
 authRouter.post('/logout', authenticate, async (req, res) => {
   const { refreshToken } = req.body;
-  if (refreshToken) {
-    await revokeRefreshToken(refreshToken);
-  }
+  if (refreshToken) await revokeRefreshToken(refreshToken);
 
   await audit.log({
     tenantId: req.user!.tenantId,
@@ -200,21 +316,19 @@ authRouter.post('/logout', authenticate, async (req, res) => {
   res.json({ message: 'Logout realizado com sucesso' });
 });
 
-// POST /api/auth/refresh
+// ─── POST /api/auth/refresh ───────────────────────────────────────────────────
+
 authRouter.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
     res.status(401).json({ error: 'Refresh token não fornecido' });
     return;
   }
-
   try {
     const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
-
     const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
 
     if (!stored || stored.expiresAt < new Date()) {
-      // Token expirado ou inválido — remove se existir
       if (stored) await prisma.refreshToken.delete({ where: { tokenHash } });
       res.status(401).json({ error: 'Refresh token inválido ou expirado. Faça login novamente.' });
       return;
@@ -231,15 +345,8 @@ authRouter.post('/refresh', async (req, res) => {
       return;
     }
 
-    // Rotação: revoga o token atual e emite um novo par
     await prisma.refreshToken.delete({ where: { tokenHash } });
-
-    const newAccessToken = generateAccessToken({
-      userId: user.id,
-      tenantId: user.tenantId,
-      role: user.role,
-      email: user.email,
-    });
+    const newAccessToken = generateAccessToken({ userId: user.id, tenantId: user.tenantId, role: user.role, email: user.email });
     const newRefreshToken = await createRefreshToken(user.id, user.tenantId);
 
     res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
@@ -248,7 +355,8 @@ authRouter.post('/refresh', async (req, res) => {
   }
 });
 
-// POST /api/auth/forgot-password
+// ─── POST /api/auth/forgot-password ──────────────────────────────────────────
+
 authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { slug, email } = req.body;
   if (!slug || !email) {
@@ -259,19 +367,13 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const genericMsg = { message: 'Se o e-mail existir, você receberá um link para redefinir a senha.' };
 
   const tenant = await prisma.tenant.findUnique({ where: { slug } });
-  if (!tenant) {
-    res.json(genericMsg);
-    return;
-  }
+  if (!tenant) { res.json(genericMsg); return; }
 
   const user = await prisma.user.findUnique({
     where: { tenantId_email: { tenantId: tenant.id, email } },
   });
 
-  if (!user || !user.active) {
-    res.json(genericMsg);
-    return;
-  }
+  if (!user || !user.active) { res.json(genericMsg); return; }
 
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
@@ -285,17 +387,13 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-  await sendPasswordResetEmail({
-    to: user.email,
-    name: user.name,
-    resetUrl,
-    tenantName: tenant.name,
-  });
+  await sendPasswordResetEmail({ to: user.email, name: user.name, resetUrl, tenantName: tenant.name });
 
   res.json(genericMsg);
 });
 
-// POST /api/auth/reset-password
+// ─── POST /api/auth/reset-password ───────────────────────────────────────────
+
 authRouter.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password || password.length < 8) {
@@ -305,10 +403,7 @@ authRouter.post('/reset-password', async (req, res) => {
 
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const user = await prisma.user.findFirst({
-    where: {
-      passwordResetToken: tokenHash,
-      passwordResetExpiry: { gt: new Date() },
-    },
+    where: { passwordResetToken: tokenHash, passwordResetExpiry: { gt: new Date() } },
   });
 
   if (!user) {
@@ -318,7 +413,6 @@ authRouter.post('/reset-password', async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // Invalida todos os refresh tokens do usuário após troca de senha
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },

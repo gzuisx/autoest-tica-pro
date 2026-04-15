@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import { sanitizeBody } from './middleware/sanitize';
 
 import { authRouter } from './routes/auth';
 import { clientsRouter } from './routes/clients';
@@ -19,6 +20,7 @@ import { tenantRouter } from './routes/tenant';
 import { reportsRouter } from './routes/reports';
 import { auditLogRouter } from './routes/auditLog';
 import { adminRouter } from './routes/admin';
+import { planRouter } from './routes/plan';
 
 const app = express();
 const PORT = process.env.PORT || 3333;
@@ -97,6 +99,7 @@ app.use('/api/payments', criticalLimiter);
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(sanitizeBody); // XSS sanitization — strips all HTML tags from string inputs
 
 // ─── Static files (uploads) ──────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -116,6 +119,7 @@ app.use('/api/photos', photosRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/audit-log', auditLogRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/plan', planRouter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

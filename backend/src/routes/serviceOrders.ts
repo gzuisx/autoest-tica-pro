@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { authenticate, requireRole } from '../middleware/auth';
 import * as audit from '../utils/auditLog';
+import { checkLimit, PlanType } from '../utils/planLimits';
 
 export const serviceOrdersRouter = Router();
 serviceOrdersRouter.use(authenticate);
@@ -109,6 +110,21 @@ serviceOrdersRouter.post('/', requireRole('admin', 'attendant'), async (req, res
   try {
     const data = serviceOrderSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
+
+    // Verifica limite do plano
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
+    const limitCheck = await checkLimit(tenantId, (tenant?.plan || 'basic') as PlanType, 'serviceOrders');
+    if (!limitCheck.allowed) {
+      res.status(402).json({
+        error: 'Limite de ordens de serviço atingido para o seu plano.',
+        limitExceeded: true,
+        resource: 'serviceOrders',
+        used: limitCheck.used,
+        limit: limitCheck.limit,
+      });
+      return;
+    }
+
     const number = await getNextOSNumber(tenantId);
 
     const order = await prisma.serviceOrder.create({

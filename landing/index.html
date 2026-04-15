@@ -4,14 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AutoEstética Pro — Sistema de Gestão para Estética Automotiva</title>
-  <meta name="description" content="Gerencie sua estética automotiva com eficiência. Agenda, clientes, ordens de serviço e relatórios em um só lugar." />
-  <meta property="og:title" content="AutoEstética Pro" />
-  <meta property="og:description" content="O sistema completo para estéticas automotivas que querem crescer." />
+  <meta name="description" content="Gerencie sua estética automotiva com eficiência. Agenda, clientes, ordens de serviço e relatórios — tudo em um só lugar. 14 dias grátis." />
+  <meta property="og:title" content="AutoEstética Pro — Sistema para Estética Automotiva" />
+  <meta property="og:description" content="Agenda, OS profissional, gestão de clientes e relatórios. O sistema completo para estéticas que querem crescer." />
   <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Google Analytics 4 -->
+  <!-- Substitua G-XXXXXXXXXX pelo seu ID do GA4 após criar a propriedade -->
+  <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script> -->
 </head>
 <body>
 
@@ -24,8 +34,8 @@
       </a>
       <div class="nav-links">
         <a href="#features">Funcionalidades</a>
-        <a href="#testimonials">Depoimentos</a>
         <a href="#pricing">Planos</a>
+        <a href="#faq">FAQ</a>
       </div>
       <div class="nav-cta">
         <a href="#contact" class="btn btn-ghost">Falar com vendas</a>
@@ -37,8 +47,8 @@
     </div>
     <div class="nav-mobile-menu" id="mobileMenu">
       <a href="#features">Funcionalidades</a>
-      <a href="#testimonials">Depoimentos</a>
       <a href="#pricing">Planos</a>
+      <a href="#faq">FAQ</a>
       <a href="#start" class="btn btn-primary" style="text-align:center">Começar grátis</a>
     </div>
   </nav>
@@ -49,30 +59,30 @@
     <div class="container hero-inner">
       <div class="hero-badge">
         <span class="badge-dot"></span>
-        Agora disponível — Plano gratuito por 14 dias
+        14 dias grátis — sem cartão de crédito
       </div>
       <h1 class="hero-title">
         Sua estética automotiva<br />
         <span class="gradient-text">organizada de verdade</span>
       </h1>
       <p class="hero-sub">
-        Agenda inteligente, ordens de serviço profissionais, gestão de clientes e relatórios — tudo em um sistema pensado para quem trabalha com estética automotiva.
+        Agenda inteligente, ordens de serviço profissionais, gestão de clientes e relatórios financeiros completos — tudo em um sistema feito para quem trabalha com estética automotiva.
       </p>
       <div class="hero-actions" id="start">
-        <a href="#contact" class="btn btn-primary btn-lg">
-          Começar gratuitamente
+        <a href="#contact" class="btn btn-primary btn-lg" onclick="trackCTA('hero')">
+          Começar 14 dias grátis
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         <a href="#features" class="btn btn-outline btn-lg">Ver funcionalidades</a>
       </div>
       <div class="hero-social-proof">
         <div class="avatars">
-          <div class="avatar" style="background:#6366f1">G</div>
-          <div class="avatar" style="background:#8b5cf6">R</div>
-          <div class="avatar" style="background:#06b6d4">M</div>
-          <div class="avatar" style="background:#10b981">L</div>
+          <div class="avatar" style="background:#6366f1">R</div>
+          <div class="avatar" style="background:#8b5cf6">F</div>
+          <div class="avatar" style="background:#06b6d4">L</div>
+          <div class="avatar" style="background:#10b981">M</div>
         </div>
-        <span>+200 estéticas já usam o sistema</span>
+        <span>Usado por estéticas em todo o Brasil</span>
       </div>
     </div>
 
@@ -83,7 +93,7 @@
           <span class="dot red"></span>
           <span class="dot yellow"></span>
           <span class="dot green"></span>
-          <span class="url-bar">autoestetia.pro/dashboard</span>
+          <span class="url-bar">app.autoesteticapro.com.br/dashboard</span>
         </div>
         <div class="app-preview-content">
           <div class="preview-sidebar">
@@ -97,23 +107,23 @@
           <div class="preview-main">
             <div class="preview-header">
               <div class="preview-title">Dashboard</div>
-              <div class="preview-date">Hoje, 14 de abril</div>
+              <div class="preview-date">Hoje, 15 de abril</div>
             </div>
             <div class="preview-cards">
               <div class="preview-card">
-                <div class="preview-card-label">Faturamento hoje</div>
-                <div class="preview-card-value">R$ 1.840</div>
-                <div class="preview-card-sub green">+12% vs ontem</div>
+                <div class="preview-card-label">Faturamento mês</div>
+                <div class="preview-card-value">R$ 14.820</div>
+                <div class="preview-card-sub green">+18% vs mês anterior</div>
               </div>
               <div class="preview-card">
-                <div class="preview-card-label">Agendamentos</div>
-                <div class="preview-card-value">8</div>
-                <div class="preview-card-sub blue">3 em andamento</div>
+                <div class="preview-card-label">Ticket médio</div>
+                <div class="preview-card-value">R$ 247</div>
+                <div class="preview-card-sub blue">38 OS concluídas</div>
               </div>
               <div class="preview-card">
-                <div class="preview-card-label">OS abertas</div>
-                <div class="preview-card-value">5</div>
-                <div class="preview-card-sub orange">2 aguardando</div>
+                <div class="preview-card-label">Pendente</div>
+                <div class="preview-card-value">R$ 1.960</div>
+                <div class="preview-card-sub orange">5 OS em aberto</div>
               </div>
             </div>
             <div class="preview-chart">
@@ -121,9 +131,9 @@
               <div class="chart-bar" style="height:65%"></div>
               <div class="chart-bar" style="height:50%"></div>
               <div class="chart-bar" style="height:80%"></div>
-              <div class="chart-bar active" style="height:90%"></div>
+              <div class="chart-bar active" style="height:95%"></div>
               <div class="chart-bar" style="height:70%"></div>
-              <div class="chart-bar" style="height:55%"></div>
+              <div class="chart-bar" style="height:85%"></div>
             </div>
           </div>
         </div>
@@ -146,6 +156,76 @@
     </div>
   </section>
 
+  <!-- ─── DOR / SOLUÇÃO ─────────────────────────────────────────────────────── -->
+  <section class="pain-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-badge">Você se identifica?</div>
+        <h2 class="section-title">Ainda perdendo dinheiro com desorganização?</h2>
+      </div>
+      <div class="pain-grid">
+        <div class="pain-col pain-col-before">
+          <div class="pain-col-header">
+            <span class="pain-label before">Sem AutoEstética Pro</span>
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            Agenda no papel ou WhatsApp, conflito de horário toda semana
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            OS feita no caderno, cliente não confia na profissionalidade
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            Não sabe quanto faturou no mês sem contar no Excel
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            Cliente sumiu e você não sabe quem ativar
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            Técnico pergunta qual serviço fazer, você para tudo para responder
+          </div>
+          <div class="pain-item">
+            <span class="pain-x">✗</span>
+            Pagamento parcial anotado em papel, fácil de esquecer
+          </div>
+        </div>
+        <div class="pain-col pain-col-after">
+          <div class="pain-col-header">
+            <span class="pain-label after">Com AutoEstética Pro</span>
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            Agenda visual, detecção de conflito automática, confirmação no WhatsApp
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            OS digital com fotos, histórico e status em tempo real
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            Dashboard com ticket médio, faturamento e projeção do mês
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            Lista de clientes inativos com botão de WhatsApp direto
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            Técnico acessa a OS no celular sem te interromper
+          </div>
+          <div class="pain-item">
+            <span class="pain-check">✓</span>
+            Controle de pagamentos parciais com histórico completo
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ─── FEATURES ──────────────────────────────────────────────────────────── -->
   <section class="features" id="features">
     <div class="container">
@@ -164,9 +244,9 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           </div>
           <h3>Agenda Inteligente</h3>
-          <p>Visualize o dia inteiro, detecte conflitos de horário com aviso automático e converta agendamentos em ordens de serviço com um clique. Links de confirmação via WhatsApp inclusos.</p>
+          <p>Visualize o dia completo, detecte conflitos de horário automaticamente e converta agendamentos em ordens de serviço com um clique. Confirmação via WhatsApp inclusa.</p>
           <div class="feature-highlight">
-            <div class="feature-pill">Conflito de horário com aviso</div>
+            <div class="feature-pill">Conflito de horário</div>
             <div class="feature-pill">Conversão para OS</div>
             <div class="feature-pill">Link WhatsApp</div>
           </div>
@@ -177,27 +257,27 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           </div>
           <h3>Ordem de Serviço Profissional</h3>
-          <p>OS completa com checklist de vistoria, mapa de danos do veículo, campo de assinatura do cliente e histórico de status.</p>
+          <p>OS completa com fotos antes/depois, histórico de status, pagamento parcial e envio por WhatsApp. O cliente vê que você é sério.</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(245,158,11,0.1); color: #fbbf24;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
-          <h3>Gestão de Clientes</h3>
-          <p>Histórico completo de visitas, veículos, gastos e datas de retorno. Identifique quem está sumido e mande mensagem no WhatsApp direto do sistema.</p>
+          <h3>Gestão Completa de Clientes</h3>
+          <p>Histórico de visitas, veículos, gastos e datas de retorno. Cadastro automático com busca de endereço pelo CEP.</p>
         </div>
 
         <div class="feature-card feature-card-large">
           <div class="feature-icon" style="background: rgba(139,92,246,0.1); color: #a78bfa;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
           </div>
-          <h3>Relatórios e Financeiro</h3>
-          <p>Faturamento por período, serviços mais vendidos, formas de pagamento e evolução de receita. Tome decisões baseadas em dados reais do seu negócio.</p>
+          <h3>Dashboard do Dono</h3>
+          <p>Faturamento do mês com comparativo ao anterior, ticket médio, projeção, top clientes por receita e receita pendente — tudo numa tela.</p>
           <div class="feature-highlight">
-            <div class="feature-pill">Faturamento diário/mensal</div>
-            <div class="feature-pill">Top serviços</div>
-            <div class="feature-pill">Controle de pagamentos</div>
+            <div class="feature-pill">Ticket médio</div>
+            <div class="feature-pill">Projeção do mês</div>
+            <div class="feature-pill">Top clientes</div>
           </div>
         </div>
 
@@ -205,18 +285,98 @@
           <div class="feature-icon" style="background: rgba(6,182,212,0.1); color: #22d3ee;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </div>
-          <h3>Multi-Usuário com Cargos</h3>
-          <p>Admin, atendente, técnico e financeiro — cada um acessa exatamente o que precisa. Segurança e organização para toda a equipe.</p>
+          <h3>Usuários com Permissões</h3>
+          <p>Administrador e técnico — cada um acessa exatamente o que precisa. Técnico não vê financeiro nem configurações.</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon" style="background: rgba(239,68,68,0.1); color: #f87171;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-          <h3>Fotos Antes e Depois</h3>
-          <p>Registre o estado do veículo na entrada e saída. Proteja seu negócio e mostre o resultado do seu trabalho para o cliente.</p>
+          <h3>Orçamentos Profissionais</h3>
+          <p>Crie orçamentos detalhados e converta em OS com um clique. Nunca mais perca um orçamento no WhatsApp.</p>
         </div>
 
+      </div>
+
+      <!-- Pro Features -->
+      <div class="pro-features-section">
+        <div class="pro-features-header">
+          <span class="pro-badge">PRO</span>
+          <h3>Funcionalidades exclusivas do plano Pro</h3>
+        </div>
+        <div class="pro-features-grid">
+          <div class="pro-feature-item">
+            <span class="pro-icon">🔔</span>
+            <div>
+              <strong>Notificação automática no WhatsApp</strong>
+              <p>Avisa o cliente quando a OS fica pronta — sem você fazer nada</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">📅</span>
+            <div>
+              <strong>Link de agendamento online</strong>
+              <p>Cliente agenda sozinho pelo celular, no seu link personalizado</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">💰</span>
+            <div>
+              <strong>Comissão de técnicos</strong>
+              <p>Relatório de quanto cada técnico gerou no período</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">📦</span>
+            <div>
+              <strong>Controle de estoque</strong>
+              <p>Produtos e insumos usados por OS — saiba seu custo real</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">🎯</span>
+            <div>
+              <strong>Metas mensais</strong>
+              <p>Defina uma meta e acompanhe o progresso no dashboard</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">🔁</span>
+            <div>
+              <strong>Retorno programado</strong>
+              <p>Sistema agenda automaticamente o retorno do cliente em X meses</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">⭐</span>
+            <div>
+              <strong>Programa de fidelidade</strong>
+              <p>Selos e pontos para clientes frequentes — retenção garantida</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">📊</span>
+            <div>
+              <strong>Relatórios avançados</strong>
+              <p>Gráficos, ranking de serviços, ranking de clientes e exportação PDF</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">🏆</span>
+            <div>
+              <strong>Avaliação pós-serviço</strong>
+              <p>Link automático para cliente avaliar no Google após pagar</p>
+            </div>
+          </div>
+          <div class="pro-feature-item">
+            <span class="pro-icon">👥</span>
+            <div>
+              <strong>Usuários ilimitados</strong>
+              <p>Adicione quantos técnicos precisar — sem custo extra</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -261,7 +421,7 @@
         <div class="testimonial-card">
           <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
           <p class="testimonial-text">
-            "O relatório mensal me mostrou que eu estava cobrando barato nos serviços que mais vendia. Ajustei os preços e meu faturamento subiu 30% no primeiro mês."
+            "O relatório me mostrou que eu cobrava barato nos serviços que mais vendia. Ajustei os preços e meu faturamento subiu 30% no primeiro mês."
           </p>
           <div class="testimonial-author">
             <div class="author-avatar" style="background:#10b981">L</div>
@@ -281,10 +441,12 @@
       <div class="section-header">
         <div class="section-badge">Planos</div>
         <h2 class="section-title">Simples, sem surpresas</h2>
-        <p class="section-sub">Comece grátis por 14 dias. Sem cartão de crédito.</p>
+        <p class="section-sub">Comece grátis por 14 dias. Cancele quando quiser.</p>
       </div>
 
       <div class="pricing-grid">
+
+        <!-- BASIC -->
         <div class="pricing-card">
           <div class="plan-name">Basic</div>
           <div class="plan-price">
@@ -292,17 +454,24 @@
             <span class="plan-value">97</span>
             <span class="plan-period">/mês</span>
           </div>
-          <p class="plan-desc">Para estéticas pequenas que querem organização.</p>
+          <p class="plan-desc">Para estéticas pequenas que querem organização e profissionalismo.</p>
           <ul class="plan-features">
-            <li><span class="check">✓</span> Agenda e agendamentos</li>
+            <li><span class="check">✓</span> Agenda com detecção de conflito</li>
             <li><span class="check">✓</span> Clientes e veículos ilimitados</li>
-            <li><span class="check">✓</span> Ordens de serviço</li>
-            <li><span class="check">✓</span> Relatórios básicos</li>
-            <li><span class="check">✓</span> Até 3 usuários</li>
+            <li><span class="check">✓</span> Ordens de serviço com fotos</li>
+            <li><span class="check">✓</span> Orçamentos profissionais</li>
+            <li><span class="check">✓</span> Catálogo de serviços</li>
+            <li><span class="check">✓</span> Relatórios básicos (CSV)</li>
+            <li><span class="check">✓</span> Até 2 usuários</li>
+            <li><span class="check">✓</span> Pagamentos parciais e parcelados</li>
+            <li><span class="check">✓</span> Integração WhatsApp</li>
           </ul>
-          <a href="#contact" class="btn btn-outline" style="width:100%;text-align:center">Começar grátis</a>
+          <a href="#contact" class="btn btn-outline" style="width:100%;text-align:center;margin-top:auto" onclick="trackCTA('pricing-basic')">
+            Começar 14 dias grátis
+          </a>
         </div>
 
+        <!-- PRO -->
         <div class="pricing-card pricing-card-featured">
           <div class="plan-badge">Mais popular</div>
           <div class="plan-name">Pro</div>
@@ -311,17 +480,103 @@
             <span class="plan-value">197</span>
             <span class="plan-period">/mês</span>
           </div>
-          <p class="plan-desc">Para estéticas em crescimento que precisam de tudo.</p>
+          <p class="plan-desc">Para estéticas em crescimento que precisam de controle total.</p>
           <ul class="plan-features">
-            <li><span class="check">✓</span> Tudo do Basic</li>
-            <li><span class="check">✓</span> Usuários ilimitados</li>
-            <li><span class="check">✓</span> Relatórios avançados</li>
-            <li><span class="check">✓</span> Fotos antes e depois</li>
-            <li><span class="check">✓</span> Orçamentos profissionais</li>
-            <li><span class="check">✓</span> Suporte prioritário</li>
+            <li><span class="check">✓</span> <strong>Tudo do Basic</strong></li>
+            <li><span class="check pro">✓</span> Usuários ilimitados</li>
+            <li><span class="check pro">✓</span> Notificação automática no WhatsApp</li>
+            <li><span class="check pro">✓</span> Link de agendamento online</li>
+            <li><span class="check pro">✓</span> Controle de estoque / insumos</li>
+            <li><span class="check pro">✓</span> Comissão de técnicos</li>
+            <li><span class="check pro">✓</span> Metas mensais com % de progresso</li>
+            <li><span class="check pro">✓</span> Retorno programado automático</li>
+            <li><span class="check pro">✓</span> Programa de fidelidade</li>
+            <li><span class="check pro">✓</span> Relatórios avançados + PDF</li>
+            <li><span class="check pro">✓</span> Avaliação pós-serviço (Google)</li>
+            <li><span class="check pro">✓</span> Suporte prioritário</li>
           </ul>
-          <a href="#contact" class="btn btn-primary" style="width:100%;text-align:center">Começar grátis</a>
+          <a href="#contact" class="btn btn-primary" style="width:100%;text-align:center;margin-top:auto" onclick="trackCTA('pricing-pro')">
+            Começar 14 dias grátis
+          </a>
         </div>
+
+      </div>
+
+      <p class="pricing-guarantee">
+        🔒 Pagamento seguro · Cancele quando quiser · Suporte em português
+      </p>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ───────────────────────────────────────────────────────────────── -->
+  <section class="faq-section" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-badge">FAQ</div>
+        <h2 class="section-title">Dúvidas frequentes</h2>
+      </div>
+      <div class="faq-list">
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Precisa instalar algum programa?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            Não. O AutoEstética Pro roda direto no navegador — Chrome, Safari, qualquer um. Funciona no computador, tablet e celular. Sem instalação, sem atualização manual.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            E se eu cancelar? Perco meus dados?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            Você pode exportar todos os seus dados antes de cancelar. Seus clientes, OS e histórico ficam disponíveis para download em CSV. Sem pegadinha.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Meus técnicos precisam de treinamento?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            O sistema foi feito para ser simples. A maioria dos usuários aprende a usar em menos de 1 hora. Temos um guia de onboarding que guia você no primeiro acesso, passo a passo.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Posso mudar de plano depois?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            Sim. Você pode fazer upgrade ou downgrade a qualquer momento. Se fizer upgrade no meio do mês, cobramos apenas a diferença proporcional.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Como funciona o período de teste grátis?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            Você tem 14 dias para testar todas as funcionalidades do plano escolhido, sem precisar de cartão de crédito. No 15º dia, você decide se quer continuar — e só então cobra.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question" onclick="toggleFaq(this)">
+            Aceita PIX?
+            <span class="faq-arrow">&#9660;</span>
+          </button>
+          <div class="faq-answer">
+            Sim. Aceitamos PIX, cartão de crédito (até 12x) e boleto bancário para pagamento da mensalidade do sistema.
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -332,7 +587,7 @@
     <div class="container cta-inner">
       <h2 class="cta-title">Pronto para organizar sua estética?</h2>
       <p class="cta-sub">
-        Comece hoje mesmo. São 14 dias grátis, sem burocracia e sem cartão de crédito.
+        14 dias grátis. Sem cartão de crédito. Configure em menos de 5 minutos.
       </p>
       <form class="cta-form" onsubmit="handleSubmit(event)">
         <input
@@ -348,7 +603,7 @@
       </form>
       <p class="cta-fine">Ao continuar, você concorda com nossos Termos de Uso e Política de Privacidade.</p>
       <div id="ctaSuccess" class="cta-success" style="display:none">
-        ✓ Recebemos seu contato! Entraremos em breve.
+        ✓ Recebemos seu contato! Entraremos em breve para criar sua conta.
       </div>
     </div>
   </section>
@@ -375,27 +630,32 @@
       menu.classList.toggle('open');
     }
 
-    // Fechar menu mobile ao clicar em link
     document.querySelectorAll('#mobileMenu a').forEach(link => {
       link.addEventListener('click', () => {
         document.getElementById('mobileMenu').classList.remove('open');
       });
     });
 
-    // Nav scroll
     window.addEventListener('scroll', () => {
       const nav = document.querySelector('.nav');
       nav.classList.toggle('scrolled', window.scrollY > 10);
     });
 
-    // CTA form
     function handleSubmit(e) {
       e.preventDefault();
+      const email = document.getElementById('ctaEmail').value;
+      trackCTA('cta-form', email);
       document.getElementById('ctaSuccess').style.display = 'block';
       e.target.style.display = 'none';
     }
 
-    // Smooth scroll
+    function toggleFaq(btn) {
+      const item = btn.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    }
+
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener('click', e => {
         const target = document.querySelector(a.getAttribute('href'));
@@ -405,6 +665,13 @@
         }
       });
     });
+
+    // Rastreamento de eventos (conecta com GA4 quando configurado)
+    function trackCTA(location, email) {
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'cta_click', { event_category: 'conversion', event_label: location });
+      }
+    }
   </script>
 
 </body>

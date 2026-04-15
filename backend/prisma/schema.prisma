@@ -45,10 +45,13 @@ model User {
   passwordHash String
   role                String    @default("attendant") // admin | attendant | technician | financial
   active              Boolean   @default(true)
-  passwordResetToken  String?
-  passwordResetExpiry DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  passwordResetToken       String?
+  passwordResetExpiry      DateTime?
+  emailVerified            Boolean   @default(false)
+  emailVerificationCode    String?   // SHA-256 do código de 6 dígitos
+  emailVerificationExpiry  DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   schedules     Schedule[]

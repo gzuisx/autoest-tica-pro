@@ -36,10 +36,11 @@ export default function RegisterPage() {
       setLoading(true)
       setError('')
       const { data: result } = await api.post('/auth/register', data)
-      localStorage.setItem('accessToken', result.accessToken)
-      localStorage.setItem('refreshToken', result.refreshToken)
-      localStorage.setItem('user', JSON.stringify(result.user))
-      localStorage.setItem('tenant', JSON.stringify(result.tenant))
+      // Backend returns pendingVerification — redirect to verify page
+      if (result.pendingVerification) {
+        navigate(`/verify-email?email=${encodeURIComponent(result.email)}`)
+        return
+      }
       navigate('/dashboard')
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Erro ao criar conta')

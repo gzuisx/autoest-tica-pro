@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Save, Building2, Users, Plus, X, Eye, EyeOff } from 'lucide-react'
+import { Save, Building2, Users, Plus, X, Eye, EyeOff, Zap } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { usePlanUsage, ResourceUsage } from '../hooks/usePlanUsage'
 import { cn } from '../lib/utils'
 
 interface TenantForm {
@@ -168,11 +170,62 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Gratuito (14 dias)',
+  basic: 'Basic',
+  pro: 'Pro',
+}
+
+const RESOURCE_LABELS: Record<string, string> = {
+  clients: 'Clientes',
+  vehicles: 'Veículos',
+  serviceOrders: 'Ordens de Serviço',
+  users: 'Usuários',
+}
+
+function UsageBar({ label, data }: { label: string; data: ResourceUsage }) {
+  const isUnlimited = !isFinite(data.limit)
+  const color =
+    data.pct >= 100 ? 'bg-destructive' : data.pct >= 80 ? 'bg-amber-400' : 'bg-primary'
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm mb-1">
+        <span className="font-medium text-foreground">{label}</span>
+        <span className={cn('text-xs font-medium', data.pct >= 100 ? 'text-destructive' : 'text-muted-foreground')}>
+          {isUnlimited ? `${data.used} / ilimitado` : `${data.used} / ${data.limit}`}
+          {!isUnlimited && ` (${data.pct}%)`}
+        </span>
+      </div>
+      {!isUnlimited && (
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all', color)}
+            style={{ width: `${Math.min(data.pct, 100)}%` }}
+          />
+        </div>
+      )}
+      {isUnlimited && (
+        <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
+          <div className="h-full w-full rounded-full bg-primary/30" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const qc = useQueryClient()
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = user?.role === 'admin'
   const [showAddUser, setShowAddUser] = useState(false)
+  const activeTab = searchParams.get('tab') || 'general'
+  const { data: planUsage, loading: planLoading } = usePlanUsage()
+
+  function setTab(tab: string) {
+    setSearchParams({ tab })
+  }
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ['tenant'],
@@ -213,8 +266,30 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground">Informações da sua estética</p>
       </div>
 
-      {/* Dados da estética */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-xl bg-muted p-1">
+        {[
+          { id: 'general', label: 'Geral' },
+          { id: 'team', label: 'Equipe' },
+          { id: 'plan', label: 'Meu Plano' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setTab(tab.id)}
+            className={cn(
+              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === tab.id
+                ? 'bg-white text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Aba Geral ──────────────────────────────────────────────────────── */}
+      {activeTab === 'general' && <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
             <Building2 className="h-5 w-5 text-primary" />
@@ -290,10 +365,10 @@ export default function SettingsPage() {
             {mutation.isPending ? 'Salvando...' : 'Salvar configurações'}
           </button>
         </form>
-      </div>
+      </div>}
 
-      {/* Equipe */}
-      {isAdmin && (
+      {/* ── Aba Equipe ─────────────────────────────────────────────────────── */}
+      {activeTab === 'team' && isAdmin && (
         <div className="rounded-xl border bg-card p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -341,6 +416,69 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Aba Meu Plano ──────────────────────────────────────────────────── */}
+      {activeTab === 'plan' && (
+        <div className="space-y-4">
+          {/* Plan card */}
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-foreground">Meu Plano</h2>
+                {planUsage && (
+                  <p className="text-xs text-muted-foreground">
+                    Plano atual:{' '}
+                    <span className="font-semibold text-primary capitalize">
+                      {PLAN_LABELS[planUsage.plan] ?? planUsage.plan}
+                    </span>
+                    {planUsage.monthly && ` — período: ${planUsage.periodLabel}`}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {planLoading && (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            )}
+
+            {planUsage && !planLoading && (
+              <div className="space-y-5">
+                {(Object.entries(planUsage.usage) as [string, ResourceUsage][]).map(([key, data]) => (
+                  <UsageBar key={key} label={RESOURCE_LABELS[key] ?? key} data={data} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Upgrade CTA — hide if already pro */}
+          {planUsage && planUsage.plan !== 'pro' && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
+              <h3 className="font-semibold text-foreground mb-1">Faça upgrade para o Plano Pro</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Clientes, veículos, ordens de serviço e usuários ilimitados. Suporte prioritário via WhatsApp.
+              </p>
+              <div className="flex items-baseline gap-1 mb-4">
+                <span className="text-3xl font-bold text-primary">R$ 197</span>
+                <span className="text-sm text-muted-foreground">/mês</span>
+              </div>
+              <a
+                href="https://wa.me/5511999999999?text=Olá! Quero fazer upgrade para o Plano Pro do AutoEstética Pro."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
+              >
+                <Zap className="h-4 w-4" />
+                Quero o Plano Pro
+              </a>
+            </div>
+          )}
         </div>
       )}
 

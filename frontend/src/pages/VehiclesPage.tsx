@@ -5,6 +5,8 @@ import { useForm, Controller } from 'react-hook-form'
 import api from '../services/api'
 import { cn, getErrorMessage } from '../lib/utils'
 import { ClientCombobox } from '../components/ClientCombobox'
+import { usePlanLimit, handleLimitError } from '../hooks/usePlanLimit'
+import { usePlanUsage } from '../hooks/usePlanUsage'
 
 const FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros'
 
@@ -159,6 +161,8 @@ const fc = (hasError?: boolean) =>
 
 function VehicleModal({ vehicle, onClose }: { vehicle?: any; onClose: () => void }) {
   const qc = useQueryClient()
+  const { showUpgradeModal, refreshUsage } = usePlanLimit()
+  const { data: planUsage } = usePlanUsage()
   const {
     register,
     handleSubmit,
@@ -172,7 +176,13 @@ function VehicleModal({ vehicle, onClose }: { vehicle?: any; onClose: () => void
       vehicle ? api.put(`/vehicles/${vehicle.id}`, data) : api.post('/vehicles', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vehicles'] })
+      refreshUsage()
       onClose()
+    },
+    onError: (err: any) => {
+      if (!vehicle) {
+        handleLimitError(err, showUpgradeModal, planUsage?.plan ?? 'basic', planUsage?.monthly ?? false)
+      }
     },
   })
 
