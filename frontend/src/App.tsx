@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { Toaster } from './components/ui/Toaster'
+import { AdminPage } from './pages/AdminPage'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -128,6 +129,9 @@ function AppRoutes() {
           }
         />
       </Route>
+      {/* Painel super-admin — acesso exclusivo do dono do sistema */}
+      <Route path="/admin" element={<AdminPage />} />
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )

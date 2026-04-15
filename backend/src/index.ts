@@ -18,6 +18,7 @@ import { photosRouter } from './routes/photos';
 import { tenantRouter } from './routes/tenant';
 import { reportsRouter } from './routes/reports';
 import { auditLogRouter } from './routes/auditLog';
+import { adminRouter } from './routes/admin';
 
 const app = express();
 const PORT = process.env.PORT || 3333;
@@ -114,6 +115,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/photos', photosRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/audit-log', auditLogRouter);
+app.use('/api/admin', adminRouter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
