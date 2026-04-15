@@ -24,4 +24,8 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    // Disponibiliza VITE_API_URL para o build de produção
+    __API_URL__: JSON.stringify(process.env.VITE_API_URL || ''),
+  },
 })
