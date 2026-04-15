@@ -5,11 +5,14 @@ import { z } from 'zod';
 import { randomBytes, createHash } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
+import { sendPasswordResetEmail } from '../utils/email';
+import { authenticate } from '../middleware/auth';
+import * as audit from '../utils/auditLog';
 
 export const authRouter = Router();
 
 const forgotPasswordLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
+  windowMs: 60 * 60 * 1000,
   max: 5,
   message: { error: 'Muitas tentativas. Aguarde 1 hora antes de tentar novamente.' },
   standardHeaders: true,
@@ -31,10 +34,27 @@ const loginSchema = z.object({
   slug: z.string(),
 });
 
-function generateTokens(payload: { userId: string; tenantId: string; role: string; email: string }) {
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '8h' });
-  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, { expiresIn: '30d' });
-  return { accessToken, refreshToken };
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
+
+function generateAccessToken(payload: { userId: string; tenantId: string; role: string; email: string }) {
+  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '8h' });
+}
+
+async function createRefreshToken(userId: string, tenantId: string): Promise<string> {
+  const rawToken = randomBytes(40).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+  await prisma.refreshToken.create({
+    data: { tokenHash, userId, tenantId, expiresAt },
+  });
+
+  return rawToken;
+}
+
+async function revokeRefreshToken(rawToken: string): Promise<void> {
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  await prisma.refreshToken.deleteMany({ where: { tokenHash } }).catch(() => {});
 }
 
 // POST /api/auth/register
@@ -69,18 +89,30 @@ authRouter.post('/register', async (req, res) => {
     });
 
     const user = tenant.users[0];
-    const tokens = generateTokens({
+    const accessToken = generateAccessToken({
       userId: user.id,
       tenantId: tenant.id,
       role: user.role,
       email: user.email,
+    });
+    const refreshToken = await createRefreshToken(user.id, tenant.id);
+
+    await audit.log({
+      tenantId: tenant.id,
+      userId: user.id,
+      userName: user.name,
+      action: 'LOGIN',
+      entity: 'user',
+      entityId: user.id,
+      details: { event: 'register' },
     });
 
     res.status(201).json({
       message: 'Estética cadastrada com sucesso!',
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      ...tokens,
+      accessToken,
+      refreshToken,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -118,17 +150,28 @@ authRouter.post('/login', async (req, res) => {
       return;
     }
 
-    const tokens = generateTokens({
+    const accessToken = generateAccessToken({
       userId: user.id,
       tenantId: tenant.id,
       role: user.role,
       email: user.email,
     });
+    const refreshToken = await createRefreshToken(user.id, tenant.id);
+
+    await audit.log({
+      tenantId: tenant.id,
+      userId: user.id,
+      userName: user.name,
+      action: 'LOGIN',
+      entity: 'user',
+      entityId: user.id,
+    });
 
     res.json({
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug, logoUrl: tenant.logoUrl },
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      ...tokens,
+      accessToken,
+      refreshToken,
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -136,6 +179,72 @@ authRouter.post('/login', async (req, res) => {
       return;
     }
     res.status(500).json({ error: 'Erro ao fazer login' });
+  }
+});
+
+// POST /api/auth/logout
+authRouter.post('/logout', authenticate, async (req, res) => {
+  const { refreshToken } = req.body;
+  if (refreshToken) {
+    await revokeRefreshToken(refreshToken);
+  }
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'LOGOUT',
+    entity: 'user',
+    entityId: req.user!.userId,
+  });
+
+  res.json({ message: 'Logout realizado com sucesso' });
+});
+
+// POST /api/auth/refresh
+authRouter.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    res.status(401).json({ error: 'Refresh token não fornecido' });
+    return;
+  }
+
+  try {
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!stored || stored.expiresAt < new Date()) {
+      // Token expirado ou inválido — remove se existir
+      if (stored) await prisma.refreshToken.delete({ where: { tokenHash } });
+      res.status(401).json({ error: 'Refresh token inválido ou expirado. Faça login novamente.' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: stored.userId },
+      select: { id: true, tenantId: true, role: true, email: true, active: true },
+    });
+
+    if (!user || !user.active) {
+      await prisma.refreshToken.delete({ where: { tokenHash } });
+      res.status(401).json({ error: 'Usuário inativo' });
+      return;
+    }
+
+    // Rotação: revoga o token atual e emite um novo par
+    await prisma.refreshToken.delete({ where: { tokenHash } });
+
+    const newAccessToken = generateAccessToken({
+      userId: user.id,
+      tenantId: user.tenantId,
+      role: user.role,
+      email: user.email,
+    });
+    const newRefreshToken = await createRefreshToken(user.id, user.tenantId);
+
+    res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+  } catch {
+    res.status(401).json({ error: 'Erro ao validar refresh token' });
   }
 });
 
@@ -147,10 +256,11 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     return;
   }
 
+  const genericMsg = { message: 'Se o e-mail existir, você receberá um link para redefinir a senha.' };
+
   const tenant = await prisma.tenant.findUnique({ where: { slug } });
   if (!tenant) {
-    // Resposta genérica para não revelar se o tenant existe
-    res.json({ message: 'Se o e-mail existir, você receberá um link para redefinir a senha.' });
+    res.json(genericMsg);
     return;
   }
 
@@ -159,13 +269,13 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   });
 
   if (!user || !user.active) {
-    res.json({ message: 'Se o e-mail existir, você receberá um link para redefinir a senha.' });
+    res.json(genericMsg);
     return;
   }
 
   const rawToken = randomBytes(32).toString('hex');
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await prisma.user.update({
     where: { id: user.id },
@@ -175,13 +285,14 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-  // Em produção: enviar por e-mail. Por ora, retorna no dev.
-  console.log(`[DEV] Link de recuperação: ${resetUrl}`);
-
-  res.json({
-    message: 'Se o e-mail existir, você receberá um link para redefinir a senha.',
-    ...(process.env.NODE_ENV === 'development' ? { devResetUrl: resetUrl } : {}),
+  await sendPasswordResetEmail({
+    to: user.email,
+    name: user.name,
+    resetUrl,
+    tenantName: tenant.name,
   });
+
+  res.json(genericMsg);
 });
 
 // POST /api/auth/reset-password
@@ -206,31 +317,15 @@ authRouter.post('/reset-password', async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null },
-  });
+
+  // Invalida todos os refresh tokens do usuário após troca de senha
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null },
+    }),
+    prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+  ]);
 
   res.json({ message: 'Senha redefinida com sucesso! Faça login.' });
-});
-
-// POST /api/auth/refresh
-authRouter.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) {
-    res.status(401).json({ error: 'Refresh token não fornecido' });
-    return;
-  }
-  try {
-    const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as {
-      userId: string;
-      tenantId: string;
-      role: string;
-      email: string;
-    };
-    const tokens = generateTokens(payload);
-    res.json(tokens);
-  } catch {
-    res.status(401).json({ error: 'Refresh token inválido' });
-  }
 });

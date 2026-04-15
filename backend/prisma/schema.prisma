@@ -3,7 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = env("DATABASE_PROVIDER")
+  // Dev: sqlite | Produção: postgresql (trocar antes do deploy)
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -31,6 +32,7 @@ model Tenant {
   serviceOrders ServiceOrder[]
   payments      Payment[]
   photos        Photo[]
+  auditLogs     AuditLog[]
 }
 
 // ─── USUÁRIOS ────────────────────────────────────────────────────────────────
@@ -51,8 +53,40 @@ model User {
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   schedules     Schedule[]
   serviceOrders ServiceOrder[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 
   @@unique([tenantId, email])
+}
+
+// ─── REFRESH TOKENS ───────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique  // SHA-256 do token bruto
+  userId    String
+  tenantId  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── AUDIT LOG ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String?
+  userName  String?
+  action    String   // CREATE | UPDATE | DELETE | STATUS_CHANGE | LOGIN | LOGOUT
+  entity    String   // client | vehicle | schedule | service_order | payment | service | user
+  entityId  String?
+  details   String?  // JSON com contexto adicional
+  createdAt DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
 }
 
 // ─── CLIENTES ────────────────────────────────────────────────────────────────
@@ -277,6 +311,7 @@ model Photo {
   type           String
   // before | after | vehicle | other
   url            String
+  storageKey     String?  // chave no bucket S3/R2 (nulo = armazenamento local)
   createdAt      DateTime @default(now())
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id])

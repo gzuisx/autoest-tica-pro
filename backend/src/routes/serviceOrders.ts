@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
+import * as audit from '../utils/auditLog';
 
 export const serviceOrdersRouter = Router();
 serviceOrdersRouter.use(authenticate);
@@ -56,12 +57,13 @@ serviceOrdersRouter.get('/', async (req, res) => {
     ];
   }
 
-  const skip = (Number(page) - 1) * Number(limit);
+  const limitNum = Math.min(Number(limit), 100);
+  const skip = (Number(page) - 1) * limitNum;
   const [orders, total] = await Promise.all([
     prisma.serviceOrder.findMany({
       where,
       skip,
-      take: Number(limit),
+      take: limitNum,
       orderBy: { createdAt: 'desc' },
       include: {
         client: { select: { id: true, name: true, phone: true, whatsapp: true, registrationNumber: true } },
@@ -74,13 +76,13 @@ serviceOrdersRouter.get('/', async (req, res) => {
     prisma.serviceOrder.count({ where }),
   ]);
 
-  res.json({ orders, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+  res.json({ orders, total, page: Number(page), totalPages: Math.ceil(total / limitNum) });
 });
 
 // GET /api/service-orders/:id
 serviceOrdersRouter.get('/:id', async (req, res) => {
   const order = await prisma.serviceOrder.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     include: {
       client: true,
       vehicle: true,
@@ -102,8 +104,8 @@ serviceOrdersRouter.get('/:id', async (req, res) => {
   res.json({ ...order, totalPaid, remaining });
 });
 
-// POST /api/service-orders
-serviceOrdersRouter.post('/', async (req, res) => {
+// POST /api/service-orders — admin e atendente
+serviceOrdersRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = serviceOrderSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
@@ -133,6 +135,15 @@ serviceOrdersRouter.post('/', async (req, res) => {
       });
     }
 
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'CREATE',
+      entity: 'service_order',
+      entityId: order.id,
+      details: { number: order.number, clientName: order.client.name, finalValue: order.finalValue },
+    });
+
     res.status(201).json(order);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -144,8 +155,8 @@ serviceOrdersRouter.post('/', async (req, res) => {
   }
 });
 
-// PATCH /api/service-orders/:id — editar valor, notas, kmEntry e damageMap
-serviceOrdersRouter.patch('/:id', async (req, res) => {
+// PATCH /api/service-orders/:id — editar valor, notas, kmEntry e damageMap (admin e atendente)
+serviceOrdersRouter.patch('/:id', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const schema = z.object({
       finalValue: z.number().positive().optional(),
@@ -156,7 +167,7 @@ serviceOrdersRouter.patch('/:id', async (req, res) => {
     const data = schema.parse(req.body);
 
     const order = await prisma.serviceOrder.findFirst({
-      where: { id: req.params.id, tenantId: req.user!.tenantId },
+      where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     });
     if (!order) {
       res.status(404).json({ error: 'Ordem de serviço não encontrada' });
@@ -164,7 +175,7 @@ serviceOrdersRouter.patch('/:id', async (req, res) => {
     }
 
     const updated = await prisma.serviceOrder.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data,
     });
     res.json(updated);
@@ -188,7 +199,7 @@ serviceOrdersRouter.patch('/:id/status', async (req, res) => {
   }
 
   const order = await prisma.serviceOrder.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!order) {
     res.status(404).json({ error: 'Ordem de serviço não encontrada' });
@@ -199,7 +210,7 @@ serviceOrdersRouter.patch('/:id/status', async (req, res) => {
 
   const [updated] = await prisma.$transaction([
     prisma.serviceOrder.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         status,
         completedAt: status === 'completed' ? new Date() : undefined,
@@ -216,13 +227,23 @@ serviceOrdersRouter.patch('/:id/status', async (req, res) => {
     }),
   ]);
 
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    userName: user?.name,
+    action: 'STATUS_CHANGE',
+    entity: 'service_order',
+    entityId: order.id,
+    details: { from: order.status, to: status, orderNumber: order.number },
+  });
+
   res.json(updated);
 });
 
 // GET /api/service-orders/:id/history
 serviceOrdersRouter.get('/:id/history', async (req, res) => {
   const order = await prisma.serviceOrder.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!order) {
     res.status(404).json({ error: 'Ordem de serviço não encontrada' });
@@ -237,18 +258,28 @@ serviceOrdersRouter.get('/:id/history', async (req, res) => {
   res.json(history);
 });
 
-// PATCH /api/service-orders/:id/checklist
+// PATCH /api/service-orders/:id/checklist — todos os roles
 serviceOrdersRouter.patch('/:id/checklist', async (req, res) => {
-  const order = await prisma.serviceOrder.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
-  });
-  if (!order) {
-    res.status(404).json({ error: 'Ordem de serviço não encontrada' });
-    return;
+  try {
+    const validated = checklistSchema.parse(req.body);
+
+    const order = await prisma.serviceOrder.findFirst({
+      where: { id: String(req.params.id), tenantId: req.user!.tenantId },
+    });
+    if (!order) {
+      res.status(404).json({ error: 'Ordem de serviço não encontrada' });
+      return;
+    }
+    const updated = await prisma.serviceOrder.update({
+      where: { id: String(req.params.id) },
+      data: { checklist: JSON.stringify(validated) },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.errors[0].message });
+      return;
+    }
+    res.status(500).json({ error: 'Erro ao atualizar checklist' });
   }
-  const updated = await prisma.serviceOrder.update({
-    where: { id: req.params.id },
-    data: { checklist: JSON.stringify(req.body) },
-  });
-  res.json(updated);
 });

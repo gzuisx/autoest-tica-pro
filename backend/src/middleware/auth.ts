@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../utils/prisma';
 
 export interface AuthPayload {
   userId: string;
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -28,6 +29,18 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
+
+    // Verifica se o tenant ainda está ativo
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: payload.tenantId },
+      select: { active: true },
+    });
+
+    if (!tenant?.active) {
+      res.status(403).json({ error: 'Conta inativa. Entre em contato com o suporte.' });
+      return;
+    }
+
     req.user = payload;
     next();
   } catch {

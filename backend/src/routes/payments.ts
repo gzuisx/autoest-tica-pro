@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
+import * as audit from '../utils/auditLog';
 
 export const paymentsRouter = Router();
 paymentsRouter.use(authenticate);
@@ -15,8 +16,8 @@ const paymentSchema = z.object({
   paidAt: z.string().optional(),
 });
 
-// GET /api/payments?serviceOrderId=xxx
-paymentsRouter.get('/', async (req, res) => {
+// GET /api/payments — admin, atendente e financeiro
+paymentsRouter.get('/', requireRole('admin', 'attendant', 'financial'), async (req, res) => {
   const { serviceOrderId } = req.query;
   const tenantId = req.user!.tenantId;
   const where: any = { tenantId };
@@ -34,8 +35,8 @@ paymentsRouter.get('/', async (req, res) => {
   res.json(payments);
 });
 
-// POST /api/payments
-paymentsRouter.post('/', async (req, res) => {
+// POST /api/payments — admin, atendente e financeiro
+paymentsRouter.post('/', requireRole('admin', 'attendant', 'financial'), async (req, res) => {
   try {
     const data = paymentSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
@@ -69,7 +70,6 @@ paymentsRouter.post('/', async (req, res) => {
       },
     });
 
-    // Se totalmente pago, marcar OS como concluída (se ainda estiver aberta)
     const newTotal = totalPaid + data.amount;
     if (newTotal >= order.finalValue - 0.01 && order.status === 'open') {
       await prisma.serviceOrder.update({
@@ -77,6 +77,15 @@ paymentsRouter.post('/', async (req, res) => {
         data: { status: 'completed', completedAt: new Date() },
       });
     }
+
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'CREATE',
+      entity: 'payment',
+      entityId: payment.id,
+      details: { amount: payment.amount, method: payment.method, serviceOrderId: payment.serviceOrderId },
+    });
 
     res.status(201).json(payment);
   } catch (err) {
@@ -88,15 +97,25 @@ paymentsRouter.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/payments/:id
-paymentsRouter.delete('/:id', async (req, res) => {
+// DELETE /api/payments/:id — somente admin
+paymentsRouter.delete('/:id', requireRole('admin'), async (req, res) => {
   const payment = await prisma.payment.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!payment) {
     res.status(404).json({ error: 'Pagamento não encontrado' });
     return;
   }
-  await prisma.payment.delete({ where: { id: req.params.id } });
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'DELETE',
+    entity: 'payment',
+    entityId: payment.id,
+    details: { amount: payment.amount, method: payment.method },
+  });
+
+  await prisma.payment.delete({ where: { id: String(req.params.id) } });
   res.json({ message: 'Pagamento removido' });
 });

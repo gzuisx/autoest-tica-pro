@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
 import { waLinkConfirmSchedule, waLinkScheduleUpdate } from '../utils/whatsapp';
+import * as audit from '../utils/auditLog';
 
 export const schedulesRouter = Router();
 schedulesRouter.use(authenticate);
@@ -16,7 +17,7 @@ const scheduleSchema = z.object({
   notes: z.string().optional(),
 });
 
-// GET /api/schedules?date=2024-01-15&status=scheduled
+// GET /api/schedules — todos os roles
 schedulesRouter.get('/', async (req, res) => {
   const { date, status, start, end } = req.query;
   const tenantId = req.user!.tenantId;
@@ -46,7 +47,7 @@ schedulesRouter.get('/', async (req, res) => {
   res.json(schedules);
 });
 
-// GET /api/schedules/today
+// GET /api/schedules/today — todos os roles
 schedulesRouter.get('/today', async (req, res) => {
   const tenantId = req.user!.tenantId;
   const today = new Date();
@@ -67,13 +68,12 @@ schedulesRouter.get('/today', async (req, res) => {
   res.json(schedules);
 });
 
-// POST /api/schedules
-schedulesRouter.post('/', async (req, res) => {
+// POST /api/schedules — admin e atendente
+schedulesRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = scheduleSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
 
-    // Validar data futura
     const dateTime = new Date(data.dateTime);
 
     if (dateTime <= new Date()) {
@@ -81,7 +81,6 @@ schedulesRouter.post('/', async (req, res) => {
       return;
     }
 
-    // Busca os serviços para calcular duração total e preços
     const services = await prisma.service.findMany({
       where: { id: { in: data.serviceIds }, tenantId, active: true },
     });
@@ -94,7 +93,6 @@ schedulesRouter.post('/', async (req, res) => {
     const totalMinutes = services.reduce((acc, s) => acc + s.estimatedMinutes, 0);
     const endDateTime = new Date(dateTime.getTime() + totalMinutes * 60 * 1000);
 
-    // Verificar conflito de horário
     const conflict = await prisma.schedule.findFirst({
       where: {
         tenantId,
@@ -129,7 +127,15 @@ schedulesRouter.post('/', async (req, res) => {
       },
     });
 
-    // Gerar link WhatsApp para confirmação
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'CREATE',
+      entity: 'schedule',
+      entityId: schedule.id,
+      details: { clientName: schedule.client.name, dateTime: schedule.dateTime },
+    });
+
     const phone = schedule.client.whatsapp || schedule.client.phone || '';
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     const formattedDate = dateTime.toLocaleDateString('pt-BR');
@@ -152,8 +158,8 @@ schedulesRouter.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/schedules/:id - editar data/hora e serviços
-schedulesRouter.put('/:id', async (req, res) => {
+// PUT /api/schedules/:id — admin e atendente
+schedulesRouter.put('/:id', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const updateSchema = z.object({
       dateTime: z.string(),
@@ -188,7 +194,6 @@ schedulesRouter.put('/:id', async (req, res) => {
     const totalMinutes = services.reduce((acc, s) => acc + s.estimatedMinutes, 0);
     const endDateTime = new Date(dateTime.getTime() + totalMinutes * 60 * 1000);
 
-    // Remove old services and create new ones
     await prisma.scheduleService.deleteMany({ where: { scheduleId: id } });
 
     const updated = await prisma.schedule.update({
@@ -206,6 +211,15 @@ schedulesRouter.put('/:id', async (req, res) => {
         vehicle: true,
         services: { include: { service: true } },
       },
+    });
+
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'UPDATE',
+      entity: 'schedule',
+      entityId: updated.id,
+      details: { clientName: updated.client.name, newDateTime: updated.dateTime },
     });
 
     const phone = updated.client.whatsapp || updated.client.phone || '';
@@ -226,7 +240,7 @@ schedulesRouter.put('/:id', async (req, res) => {
   }
 });
 
-// PATCH /api/schedules/:id/status
+// PATCH /api/schedules/:id/status — todos os roles
 schedulesRouter.patch('/:id/status', async (req, res) => {
   const validStatuses = ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'];
   const { status } = req.body;
@@ -237,7 +251,7 @@ schedulesRouter.patch('/:id/status', async (req, res) => {
   }
 
   const schedule = await prisma.schedule.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!schedule) {
     res.status(404).json({ error: 'Agendamento não encontrado' });
@@ -245,19 +259,29 @@ schedulesRouter.patch('/:id/status', async (req, res) => {
   }
 
   const updated = await prisma.schedule.update({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     data: { status },
     include: { client: true, vehicle: true, services: { include: { service: true } } },
   });
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'STATUS_CHANGE',
+    entity: 'schedule',
+    entityId: updated.id,
+    details: { from: schedule.status, to: status },
+  });
+
   res.json(updated);
 });
 
-// POST /api/schedules/:id/to-service-order
-schedulesRouter.post('/:id/to-service-order', async (req, res) => {
+// POST /api/schedules/:id/to-service-order — admin e atendente
+schedulesRouter.post('/:id/to-service-order', requireRole('admin', 'attendant'), async (req, res) => {
   const tenantId = req.user!.tenantId;
 
   const schedule = await prisma.schedule.findFirst({
-    where: { id: req.params.id, tenantId },
+    where: { id: String(req.params.id), tenantId },
     include: {
       client: true,
       vehicle: true,
@@ -270,7 +294,6 @@ schedulesRouter.post('/:id/to-service-order', async (req, res) => {
     return;
   }
 
-  // Busca o próximo número de OS
   const last = await prisma.serviceOrder.findFirst({
     where: { tenantId },
     orderBy: { number: 'desc' },
@@ -294,25 +317,43 @@ schedulesRouter.post('/:id/to-service-order', async (req, res) => {
     include: { client: true, vehicle: true },
   });
 
-  // Marca o agendamento como em andamento
   await prisma.schedule.update({
     where: { id: schedule.id },
     data: { status: 'in_progress' },
   });
 
+  await audit.log({
+    tenantId,
+    userId: req.user!.userId,
+    action: 'CREATE',
+    entity: 'service_order',
+    entityId: order.id,
+    details: { fromSchedule: schedule.id, number: order.number },
+  });
+
   res.status(201).json(order);
 });
 
-// DELETE /api/schedules/:id
-schedulesRouter.delete('/:id', async (req, res) => {
+// DELETE /api/schedules/:id — somente admin
+schedulesRouter.delete('/:id', requireRole('admin'), async (req, res) => {
   const schedule = await prisma.schedule.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!schedule) {
     res.status(404).json({ error: 'Agendamento não encontrado' });
     return;
   }
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'DELETE',
+    entity: 'schedule',
+    entityId: schedule.id,
+    details: { dateTime: schedule.dateTime, status: schedule.status },
+  });
+
   await prisma.scheduleService.deleteMany({ where: { scheduleId: schedule.id } });
-  await prisma.schedule.delete({ where: { id: req.params.id } });
+  await prisma.schedule.delete({ where: { id: String(req.params.id) } });
   res.json({ message: 'Agendamento removido' });
 });

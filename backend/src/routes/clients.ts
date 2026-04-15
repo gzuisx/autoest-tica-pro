@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
 import { waLinkReturnReminder, waLinkBirthday } from '../utils/whatsapp';
+import * as audit from '../utils/auditLog';
 
 export const clientsRouter = Router();
 clientsRouter.use(authenticate);
@@ -35,7 +36,7 @@ async function getNextRegistrationNumber(tenantId: string): Promise<number> {
   return (last?.registrationNumber ?? 0) + 1;
 }
 
-// GET /api/clients
+// GET /api/clients — todos os roles
 clientsRouter.get('/', async (req, res) => {
   const { search, page = '1', limit = '20' } = req.query;
   const tenantId = req.user!.tenantId;
@@ -71,10 +72,10 @@ clientsRouter.get('/', async (req, res) => {
   res.json({ clients, total, page: Number(page), totalPages: Math.ceil(total / limitNum) });
 });
 
-// GET /api/clients/:id
+// GET /api/clients/:id — todos os roles
 clientsRouter.get('/:id', async (req, res) => {
   const client = await prisma.client.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     include: {
       vehicles: true,
       serviceOrders: {
@@ -113,8 +114,8 @@ clientsRouter.get('/:id', async (req, res) => {
   res.json({ ...client, totalSpent, daysSinceLastVisit, waLinks });
 });
 
-// POST /api/clients
-clientsRouter.post('/', async (req, res) => {
+// POST /api/clients — admin e atendente
+clientsRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = clientSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
@@ -130,6 +131,16 @@ clientsRouter.post('/', async (req, res) => {
         email: data.email || undefined,
       },
     });
+
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'CREATE',
+      entity: 'client',
+      entityId: client.id,
+      details: { name: client.name, registrationNumber: client.registrationNumber },
+    });
+
     res.status(201).json(client);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -140,24 +151,34 @@ clientsRouter.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/clients/:id
-clientsRouter.put('/:id', async (req, res) => {
+// PUT /api/clients/:id — admin e atendente
+clientsRouter.put('/:id', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = clientSchema.partial().parse(req.body);
     const client = await prisma.client.findFirst({
-      where: { id: req.params.id, tenantId: req.user!.tenantId },
+      where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     });
     if (!client) {
       res.status(404).json({ error: 'Cliente não encontrado' });
       return;
     }
     const updated = await prisma.client.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         ...data,
         birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
       },
     });
+
+    await audit.log({
+      tenantId: req.user!.tenantId,
+      userId: req.user!.userId,
+      action: 'UPDATE',
+      entity: 'client',
+      entityId: updated.id,
+      details: { name: updated.name },
+    });
+
     res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -168,15 +189,25 @@ clientsRouter.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/clients/:id
-clientsRouter.delete('/:id', async (req, res) => {
+// DELETE /api/clients/:id — somente admin
+clientsRouter.delete('/:id', requireRole('admin'), async (req, res) => {
   const client = await prisma.client.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!client) {
     res.status(404).json({ error: 'Cliente não encontrado' });
     return;
   }
-  await prisma.client.delete({ where: { id: req.params.id } });
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'DELETE',
+    entity: 'client',
+    entityId: client.id,
+    details: { name: client.name },
+  });
+
+  await prisma.client.delete({ where: { id: String(req.params.id) } });
   res.json({ message: 'Cliente removido' });
 });

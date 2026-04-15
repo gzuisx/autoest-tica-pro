@@ -71,7 +71,7 @@ quotesRouter.get('/', async (req, res) => {
 // GET /api/quotes/:id
 quotesRouter.get('/:id', async (req, res) => {
   const quote = await prisma.quote.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     include: {
       client: true,
       vehicle: true,
@@ -154,7 +154,7 @@ quotesRouter.put('/:id', async (req, res) => {
     const tenantId = req.user!.tenantId;
 
     const existing = await prisma.quote.findFirst({
-      where: { id: req.params.id, tenantId },
+      where: { id: String(req.params.id), tenantId },
     });
     if (!existing) {
       res.status(404).json({ error: 'Orçamento não encontrado' });
@@ -170,7 +170,7 @@ quotesRouter.put('/:id', async (req, res) => {
     await prisma.quoteItem.deleteMany({ where: { quoteId: req.params.id } });
 
     const updated = await prisma.quote.update({
-      where: { id: req.params.id },
+      where: { id: String(req.params.id) },
       data: {
         clientId: data.clientId,
         vehicleId: data.vehicleId,
@@ -221,14 +221,14 @@ quotesRouter.patch('/:id/status', async (req, res) => {
   }
 
   const quote = await prisma.quote.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!quote) {
     res.status(404).json({ error: 'Orçamento não encontrado' });
     return;
   }
 
-  const updated = await prisma.quote.update({ where: { id: req.params.id }, data: { status } });
+  const updated = await prisma.quote.update({ where: { id: String(req.params.id) }, data: { status } });
   res.json(updated);
 });
 
@@ -238,7 +238,7 @@ quotesRouter.post('/:id/convert-to-os', async (req, res) => {
     const tenantId = req.user!.tenantId;
 
     const quote = await prisma.quote.findFirst({
-      where: { id: req.params.id, tenantId },
+      where: { id: String(req.params.id), tenantId },
       include: { client: true, vehicle: true },
     });
     if (!quote) {

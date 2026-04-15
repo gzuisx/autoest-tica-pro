@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRole } from '../middleware/auth';
+import * as audit from '../utils/auditLog';
 
 export const vehiclesRouter = Router();
 vehiclesRouter.use(authenticate);
@@ -18,7 +19,7 @@ const vehicleSchema = z.object({
   notes: z.string().optional(),
 });
 
-// GET /api/vehicles?clientId=xxx
+// GET /api/vehicles — todos os roles
 vehiclesRouter.get('/', async (req, res) => {
   const { clientId, search } = req.query;
   const tenantId = req.user!.tenantId;
@@ -26,8 +27,8 @@ vehiclesRouter.get('/', async (req, res) => {
   const where: any = { tenantId };
   if (clientId) where.clientId = String(clientId);
   if (search) {
-    const searchStr = String(search)
-    const searchNum = parseInt(searchStr)
+    const searchStr = String(search);
+    const searchNum = parseInt(searchStr);
     where.OR = [
       { brand: { contains: searchStr, mode: 'insensitive' } },
       { model: { contains: searchStr, mode: 'insensitive' } },
@@ -49,10 +50,10 @@ vehiclesRouter.get('/', async (req, res) => {
   res.json(vehicles);
 });
 
-// GET /api/vehicles/:id
+// GET /api/vehicles/:id — todos os roles
 vehiclesRouter.get('/:id', async (req, res) => {
   const vehicle = await prisma.vehicle.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     include: {
       client: true,
       serviceOrders: {
@@ -71,8 +72,8 @@ vehiclesRouter.get('/:id', async (req, res) => {
   res.json(vehicle);
 });
 
-// POST /api/vehicles
-vehiclesRouter.post('/', async (req, res) => {
+// POST /api/vehicles — admin e atendente
+vehiclesRouter.post('/', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = vehicleSchema.parse(req.body);
     const tenantId = req.user!.tenantId;
@@ -84,6 +85,16 @@ vehiclesRouter.post('/', async (req, res) => {
     }
 
     const vehicle = await prisma.vehicle.create({ data: { ...data, tenantId } });
+
+    await audit.log({
+      tenantId,
+      userId: req.user!.userId,
+      action: 'CREATE',
+      entity: 'vehicle',
+      entityId: vehicle.id,
+      details: { brand: vehicle.brand, model: vehicle.model, plate: vehicle.plate, chassis: vehicle.chassis },
+    });
+
     res.status(201).json(vehicle);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -94,18 +105,28 @@ vehiclesRouter.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/vehicles/:id
-vehiclesRouter.put('/:id', async (req, res) => {
+// PUT /api/vehicles/:id — admin e atendente
+vehiclesRouter.put('/:id', requireRole('admin', 'attendant'), async (req, res) => {
   try {
     const data = vehicleSchema.partial().parse(req.body);
     const vehicle = await prisma.vehicle.findFirst({
-      where: { id: req.params.id, tenantId: req.user!.tenantId },
+      where: { id: String(req.params.id), tenantId: req.user!.tenantId },
     });
     if (!vehicle) {
       res.status(404).json({ error: 'Veículo não encontrado' });
       return;
     }
-    const updated = await prisma.vehicle.update({ where: { id: req.params.id }, data });
+    const updated = await prisma.vehicle.update({ where: { id: String(req.params.id) }, data });
+
+    await audit.log({
+      tenantId: req.user!.tenantId,
+      userId: req.user!.userId,
+      action: 'UPDATE',
+      entity: 'vehicle',
+      entityId: updated.id,
+      details: { brand: updated.brand, model: updated.model, plate: updated.plate },
+    });
+
     res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -116,15 +137,25 @@ vehiclesRouter.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/vehicles/:id
-vehiclesRouter.delete('/:id', async (req, res) => {
+// DELETE /api/vehicles/:id — somente admin
+vehiclesRouter.delete('/:id', requireRole('admin'), async (req, res) => {
   const vehicle = await prisma.vehicle.findFirst({
-    where: { id: req.params.id, tenantId: req.user!.tenantId },
+    where: { id: String(req.params.id), tenantId: req.user!.tenantId },
   });
   if (!vehicle) {
     res.status(404).json({ error: 'Veículo não encontrado' });
     return;
   }
-  await prisma.vehicle.delete({ where: { id: req.params.id } });
+
+  await audit.log({
+    tenantId: req.user!.tenantId,
+    userId: req.user!.userId,
+    action: 'DELETE',
+    entity: 'vehicle',
+    entityId: vehicle.id,
+    details: { brand: vehicle.brand, model: vehicle.model, plate: vehicle.plate },
+  });
+
+  await prisma.vehicle.delete({ where: { id: String(req.params.id) } });
   res.json({ message: 'Veículo removido' });
 });
