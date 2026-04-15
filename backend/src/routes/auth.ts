@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { randomBytes, createHash } from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../utils/email';
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from '../utils/email';
 import { authenticate } from '../middleware/auth';
 import * as audit from '../utils/auditLog';
 
@@ -186,6 +186,14 @@ authRouter.post('/verify-email', verificationLimiter, async (req, res) => {
     entityId: user.id,
     details: { event: 'email_verified' },
   });
+
+  // Boas-vindas — dispara sem bloquear a resposta
+  sendWelcomeEmail({
+    to: user.email,
+    name: user.name,
+    tenantName: user.tenant.name,
+    appUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  }).catch(() => {/* silencia erro de e-mail */});
 
   res.json({
     message: 'E-mail verificado com sucesso! Bem-vindo.',

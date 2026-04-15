@@ -21,6 +21,7 @@ import { reportsRouter } from './routes/reports';
 import { auditLogRouter } from './routes/auditLog';
 import { adminRouter } from './routes/admin';
 import { planRouter } from './routes/plan';
+import { leadsRouter } from './routes/leads';
 
 const app = express();
 const PORT = process.env.PORT || 3333;
@@ -120,6 +121,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/audit-log', auditLogRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/plan', planRouter);
+app.use('/api/leads', leadsRouter);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

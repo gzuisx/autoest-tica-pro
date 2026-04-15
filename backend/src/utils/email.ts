@@ -2,12 +2,20 @@ import nodemailer from 'nodemailer';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Resend.com via SMTP:
+//   SMTP_HOST=smtp.resend.com
+//   SMTP_PORT=465
+//   SMTP_SECURE=true
+//   SMTP_USER=resend
+//   SMTP_PASS=<sua API key do Resend>
+//   SMTP_FROM=noreply@seudominio.com.br
+
 function createTransporter() {
   if (isDev) return null;
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: process.env.SMTP_SECURE !== 'false', // true por padrão (Resend usa 465/SSL)
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
 }
@@ -33,14 +41,14 @@ function baseLayout(content: string): string {
 
 async function send(to: string, subject: string, html: string): Promise<void> {
   if (isDev) {
-    console.log(`\n[DEV] E-mail: ${subject}`);
+    console.log(`\n[DEV EMAIL] ─────────────────────`);
     console.log(`  Para: ${to}`);
-    // Extrai código ou link do HTML para facilitar testes
+    console.log(`  Assunto: ${subject}`);
     const code = html.match(/letter-spacing:8px[^>]*>(\d{6})</)?.[1];
-    const link = html.match(/href="(https?:\/\/[^"]+)"/)?.[1];
+    const link = html.match(/href="(https?:\/\/[^"]+reset[^"]+)"/)?.[1];
     if (code) console.log(`  Código: ${code}`);
     if (link) console.log(`  Link: ${link}`);
-    console.log('');
+    console.log(`──────────────────────────────────\n`);
     return;
   }
   const transporter = createTransporter();
@@ -114,4 +122,68 @@ export async function sendPasswordResetEmail(opts: SendPasswordResetOptions): Pr
     </p>
   `);
   await send(opts.to, `Redefinição de senha — ${opts.tenantName}`, html);
+}
+
+// ─── Boas-vindas após verificação de e-mail ──────────────────────────────────
+
+interface SendWelcomeOptions {
+  to: string;
+  name: string;
+  tenantName: string;
+  appUrl: string;
+}
+
+export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<void> {
+  const html = baseLayout(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Bem-vindo ao AutoEstética Pro! 🎉</h2>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:15px;">
+      Olá, <strong>${opts.name}</strong>! Sua conta da <strong>${opts.tenantName}</strong> está ativa.
+      Você tem <strong>14 dias grátis</strong> para explorar tudo.
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#15803d;">Por onde começar:</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#374151;">&#9642; Cadastre seus serviços no catálogo</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#374151;">&#9642; Adicione seus primeiros clientes</p>
+      <p style="margin:0 0 6px;font-size:14px;color:#374151;">&#9642; Crie seu primeiro agendamento ou OS</p>
+      <p style="margin:0;font-size:14px;color:#374151;">&#9642; Confira o dashboard para ver o resumo do dia</p>
+    </div>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${opts.appUrl}"
+         style="background:#4f46e5;color:#ffffff;padding:14px 32px;border-radius:8px;
+                text-decoration:none;font-size:15px;font-weight:600;display:inline-block;">
+        Acessar minha conta
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center;">
+      Alguma dúvida? Responda este e-mail — estamos aqui para ajudar.
+    </p>
+  `);
+  await send(opts.to, `Bem-vindo à AutoEstética Pro, ${opts.name}!`, html);
+}
+
+// ─── Notificação de novo lead (landing page) → Gabriel ───────────────────────
+
+interface SendLeadNotificationOptions {
+  leadEmail: string;
+  leadName?: string;
+  source?: string; // ex: 'hero', 'pricing-pro', 'cta-form'
+}
+
+export async function sendLeadNotification(opts: SendLeadNotificationOptions): Promise<void> {
+  const ownerEmail = process.env.OWNER_EMAIL || 'gabrieldejesusf10@gmail.com';
+  const html = baseLayout(`
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Novo lead na landing page! 🚀</h2>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:15px;">
+      Alguém demonstrou interesse no AutoEstética Pro.
+    </p>
+    <div style="background:#f0f0ff;border:1px solid #c7d2fe;border-radius:10px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>E-mail:</strong> ${opts.leadEmail}</p>
+      ${opts.leadName ? `<p style="margin:0 0 8px;font-size:14px;color:#374151;"><strong>Nome:</strong> ${opts.leadName}</p>` : ''}
+      ${opts.source ? `<p style="margin:0;font-size:14px;color:#374151;"><strong>Origem:</strong> ${opts.source}</p>` : ''}
+    </div>
+    <p style="margin:0;font-size:13px;color:#9ca3af;">
+      Entre em contato o quanto antes — leads quentes convertem melhor!
+    </p>
+  `);
+  await send(ownerEmail, `Novo lead: ${opts.leadEmail}`, html);
 }

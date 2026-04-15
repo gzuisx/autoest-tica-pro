@@ -641,9 +641,23 @@
       nav.classList.toggle('scrolled', window.scrollY > 10);
     });
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
       e.preventDefault();
       const email = document.getElementById('ctaEmail').value;
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+
+      try {
+        // BACKEND_URL — substitua pelo URL do Railway após o deploy
+        const backendUrl = window.BACKEND_URL || 'http://localhost:3333';
+        await fetch(`${backendUrl}/api/leads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, source: 'cta-form' }),
+        });
+      } catch (_) { /* silencia — mostra sucesso de qualquer jeito */ }
+
       trackCTA('cta-form', email);
       document.getElementById('ctaSuccess').style.display = 'block';
       e.target.style.display = 'none';
