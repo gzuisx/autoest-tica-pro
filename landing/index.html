@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoEstética Pro — Sistema de Gestão para Estética Automotiva</title>
+  <meta name="description" content="Gerencie sua estética automotiva com eficiência. Agenda, clientes, ordens de serviço e relatórios em um só lugar." />
+  <meta property="og:title" content="AutoEstética Pro" />
+  <meta property="og:description" content="O sistema completo para estéticas automotivas que querem crescer." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ─── NAV ───────────────────────────────────────────────────────────────── -->
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="#" class="logo">
+        <span class="logo-icon">&#9632;</span>
+        AutoEstética Pro
+      </a>
+      <div class="nav-links">
+        <a href="#features">Funcionalidades</a>
+        <a href="#testimonials">Depoimentos</a>
+        <a href="#pricing">Planos</a>
+      </div>
+      <div class="nav-cta">
+        <a href="#contact" class="btn btn-ghost">Falar com vendas</a>
+        <a href="#start" class="btn btn-primary">Começar grátis</a>
+      </div>
+      <button class="nav-mobile-btn" aria-label="Menu" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="nav-mobile-menu" id="mobileMenu">
+      <a href="#features">Funcionalidades</a>
+      <a href="#testimonials">Depoimentos</a>
+      <a href="#pricing">Planos</a>
+      <a href="#start" class="btn btn-primary" style="text-align:center">Começar grátis</a>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ──────────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="container hero-inner">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Agora disponível — Plano gratuito por 14 dias
+      </div>
+      <h1 class="hero-title">
+        Sua estética automotiva<br />
+        <span class="gradient-text">organizada de verdade</span>
+      </h1>
+      <p class="hero-sub">
+        Agenda inteligente, ordens de serviço profissionais, gestão de clientes e relatórios — tudo em um sistema pensado para quem trabalha com estética automotiva.
+      </p>
+      <div class="hero-actions" id="start">
+        <a href="#contact" class="btn btn-primary btn-lg">
+          Começar gratuitamente
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#features" class="btn btn-outline btn-lg">Ver funcionalidades</a>
+      </div>
+      <div class="hero-social-proof">
+        <div class="avatars">
+          <div class="avatar" style="background:#6366f1">G</div>
+          <div class="avatar" style="background:#8b5cf6">R</div>
+          <div class="avatar" style="background:#06b6d4">M</div>
+          <div class="avatar" style="background:#10b981">L</div>
+        </div>
+        <span>+200 estéticas já usam o sistema</span>
+      </div>
+    </div>
+
+    <!-- App Preview -->
+    <div class="container">
+      <div class="app-preview">
+        <div class="app-preview-bar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="url-bar">autoestetia.pro/dashboard</span>
+        </div>
+        <div class="app-preview-content">
+          <div class="preview-sidebar">
+            <div class="preview-logo">&#9632; AutoEstética</div>
+            <div class="preview-nav-item active">Dashboard</div>
+            <div class="preview-nav-item">Agenda</div>
+            <div class="preview-nav-item">Clientes</div>
+            <div class="preview-nav-item">OS</div>
+            <div class="preview-nav-item">Relatórios</div>
+          </div>
+          <div class="preview-main">
+            <div class="preview-header">
+              <div class="preview-title">Dashboard</div>
+              <div class="preview-date">Hoje, 14 de abril</div>
+            </div>
+            <div class="preview-cards">
+              <div class="preview-card">
+                <div class="preview-card-label">Faturamento hoje</div>
+                <div class="preview-card-value">R$ 1.840</div>
+                <div class="preview-card-sub green">+12% vs ontem</div>
+              </div>
+              <div class="preview-card">
+                <div class="preview-card-label">Agendamentos</div>
+                <div class="preview-card-value">8</div>
+                <div class="preview-card-sub blue">3 em andamento</div>
+              </div>
+              <div class="preview-card">
+                <div class="preview-card-label">OS abertas</div>
+                <div class="preview-card-value">5</div>
+                <div class="preview-card-sub orange">2 aguardando</div>
+              </div>
+            </div>
+            <div class="preview-chart">
+              <div class="chart-bar" style="height:40%"></div>
+              <div class="chart-bar" style="height:65%"></div>
+              <div class="chart-bar" style="height:50%"></div>
+              <div class="chart-bar" style="height:80%"></div>
+              <div class="chart-bar active" style="height:90%"></div>
+              <div class="chart-bar" style="height:70%"></div>
+              <div class="chart-bar" style="height:55%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── LOGOS / SOCIAL PROOF ──────────────────────────────────────────────── -->
+  <section class="logos-section">
+    <div class="container">
+      <p class="logos-label">Confiado por estéticas em todo o Brasil</p>
+      <div class="logos-row">
+        <span class="logo-name">Clean Auto</span>
+        <span class="logo-name">Premium Detail</span>
+        <span class="logo-name">Shine Motors</span>
+        <span class="logo-name">Top Finish</span>
+        <span class="logo-name">Auto Brilho</span>
+        <span class="logo-name">VIP Detail</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FEATURES ──────────────────────────────────────────────────────────── -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-badge">Funcionalidades</div>
+        <h2 class="section-title">Tudo o que sua estética precisa</h2>
+        <p class="section-sub">
+          Desenvolvido especificamente para estéticas automotivas, com cada detalhe pensado para o seu fluxo de trabalho.
+        </p>
+      </div>
+
+      <div class="features-grid">
+
+        <div class="feature-card feature-card-large">
+          <div class="feature-icon" style="background: rgba(99,102,241,0.1); color: #818cf8;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+          <h3>Agenda Inteligente</h3>
+          <p>Visualize o dia inteiro, detecte conflitos de horário com aviso automático e converta agendamentos em ordens de serviço com um clique. Links de confirmação via WhatsApp inclusos.</p>
+          <div class="feature-highlight">
+            <div class="feature-pill">Conflito de horário com aviso</div>
+            <div class="feature-pill">Conversão para OS</div>
+            <div class="feature-pill">Link WhatsApp</div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(16,185,129,0.1); color: #34d399;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+          <h3>Ordem de Serviço Profissional</h3>
+          <p>OS completa com checklist de vistoria, mapa de danos do veículo, campo de assinatura do cliente e histórico de status.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(245,158,11,0.1); color: #fbbf24;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <h3>Gestão de Clientes</h3>
+          <p>Histórico completo de visitas, veículos, gastos e datas de retorno. Identifique quem está sumido e mande mensagem no WhatsApp direto do sistema.</p>
+        </div>
+
+        <div class="feature-card feature-card-large">
+          <div class="feature-icon" style="background: rgba(139,92,246,0.1); color: #a78bfa;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </div>
+          <h3>Relatórios e Financeiro</h3>
+          <p>Faturamento por período, serviços mais vendidos, formas de pagamento e evolução de receita. Tome decisões baseadas em dados reais do seu negócio.</p>
+          <div class="feature-highlight">
+            <div class="feature-pill">Faturamento diário/mensal</div>
+            <div class="feature-pill">Top serviços</div>
+            <div class="feature-pill">Controle de pagamentos</div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(6,182,212,0.1); color: #22d3ee;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <h3>Multi-Usuário com Cargos</h3>
+          <p>Admin, atendente, técnico e financeiro — cada um acessa exatamente o que precisa. Segurança e organização para toda a equipe.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background: rgba(239,68,68,0.1); color: #f87171;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <h3>Fotos Antes e Depois</h3>
+          <p>Registre o estado do veículo na entrada e saída. Proteja seu negócio e mostre o resultado do seu trabalho para o cliente.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TESTIMONIALS ──────────────────────────────────────────────────────── -->
+  <section class="testimonials" id="testimonials">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-badge">Depoimentos</div>
+        <h2 class="section-title">O que dizem os donos de estética</h2>
+      </div>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <p class="testimonial-text">
+            "Antes eu controlava tudo no papel e esquecia de cobrar cliente. Hoje o sistema me avisa de tudo, a OS fica profissional e o cliente vê que a gente leva o negócio a sério."
+          </p>
+          <div class="testimonial-author">
+            <div class="author-avatar" style="background:#6366f1">R</div>
+            <div>
+              <div class="author-name">Ricardo Mendes</div>
+              <div class="author-role">Dono — RM Auto Detail, São Paulo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card testimonial-featured">
+          <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <p class="testimonial-text">
+            "Minha agenda virou um caos quando cresci para 3 funcionários. Com o AutoEstética Pro eu vejo tudo numa tela só, sei quem está fazendo o quê e nunca mais dei problema de agenda dupla."
+          </p>
+          <div class="testimonial-author">
+            <div class="author-avatar" style="background:#8b5cf6">F</div>
+            <div>
+              <div class="author-name">Fernanda Costa</div>
+              <div class="author-role">Sócia-Gestora — Shine Detail Studio, Curitiba</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <p class="testimonial-text">
+            "O relatório mensal me mostrou que eu estava cobrando barato nos serviços que mais vendia. Ajustei os preços e meu faturamento subiu 30% no primeiro mês."
+          </p>
+          <div class="testimonial-author">
+            <div class="author-avatar" style="background:#10b981">L</div>
+            <div>
+              <div class="author-name">Lucas Andrade</div>
+              <div class="author-role">Proprietário — Luxo & Brilho, Belo Horizonte</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRICING ────────────────────────────────────────────────────────────── -->
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-badge">Planos</div>
+        <h2 class="section-title">Simples, sem surpresas</h2>
+        <p class="section-sub">Comece grátis por 14 dias. Sem cartão de crédito.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="pricing-card">
+          <div class="plan-name">Basic</div>
+          <div class="plan-price">
+            <span class="plan-currency">R$</span>
+            <span class="plan-value">97</span>
+            <span class="plan-period">/mês</span>
+          </div>
+          <p class="plan-desc">Para estéticas pequenas que querem organização.</p>
+          <ul class="plan-features">
+            <li><span class="check">✓</span> Agenda e agendamentos</li>
+            <li><span class="check">✓</span> Clientes e veículos ilimitados</li>
+            <li><span class="check">✓</span> Ordens de serviço</li>
+            <li><span class="check">✓</span> Relatórios básicos</li>
+            <li><span class="check">✓</span> Até 3 usuários</li>
+          </ul>
+          <a href="#contact" class="btn btn-outline" style="width:100%;text-align:center">Começar grátis</a>
+        </div>
+
+        <div class="pricing-card pricing-card-featured">
+          <div class="plan-badge">Mais popular</div>
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">
+            <span class="plan-currency">R$</span>
+            <span class="plan-value">197</span>
+            <span class="plan-period">/mês</span>
+          </div>
+          <p class="plan-desc">Para estéticas em crescimento que precisam de tudo.</p>
+          <ul class="plan-features">
+            <li><span class="check">✓</span> Tudo do Basic</li>
+            <li><span class="check">✓</span> Usuários ilimitados</li>
+            <li><span class="check">✓</span> Relatórios avançados</li>
+            <li><span class="check">✓</span> Fotos antes e depois</li>
+            <li><span class="check">✓</span> Orçamentos profissionais</li>
+            <li><span class="check">✓</span> Suporte prioritário</li>
+          </ul>
+          <a href="#contact" class="btn btn-primary" style="width:100%;text-align:center">Começar grátis</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA FINAL ──────────────────────────────────────────────────────────── -->
+  <section class="cta-final" id="contact">
+    <div class="cta-glow" aria-hidden="true"></div>
+    <div class="container cta-inner">
+      <h2 class="cta-title">Pronto para organizar sua estética?</h2>
+      <p class="cta-sub">
+        Comece hoje mesmo. São 14 dias grátis, sem burocracia e sem cartão de crédito.
+      </p>
+      <form class="cta-form" onsubmit="handleSubmit(event)">
+        <input
+          type="email"
+          placeholder="seu@email.com"
+          required
+          class="cta-input"
+          id="ctaEmail"
+        />
+        <button type="submit" class="btn btn-primary btn-lg">
+          Quero começar grátis
+        </button>
+      </form>
+      <p class="cta-fine">Ao continuar, você concorda com nossos Termos de Uso e Política de Privacidade.</p>
+      <div id="ctaSuccess" class="cta-success" style="display:none">
+        ✓ Recebemos seu contato! Entraremos em breve.
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─────────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">&#9632;</span>
+        AutoEstética Pro
+        <span class="footer-copy">© 2026</span>
+      </div>
+      <div class="footer-links">
+        <a href="#">Termos</a>
+        <a href="#">Privacidade</a>
+        <a href="#">Suporte</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById('mobileMenu');
+      menu.classList.toggle('open');
+    }
+
+    // Fechar menu mobile ao clicar em link
+    document.querySelectorAll('#mobileMenu a').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('mobileMenu').classList.remove('open');
+      });
+    });
+
+    // Nav scroll
+    window.addEventListener('scroll', () => {
+      const nav = document.querySelector('.nav');
+      nav.classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // CTA form
+    function handleSubmit(e) {
+      e.preventDefault();
+      document.getElementById('ctaSuccess').style.display = 'block';
+      e.target.style.display = 'none';
+    }
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
