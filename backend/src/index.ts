@@ -43,8 +43,11 @@ app.use(helmet({
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite requests sem origin (ex: mobile apps, Postman em dev)
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin) {
+      // Em dev permite Postman/curl; em prod bloqueia requests sem Origin
+      return isDev ? callback(null, true) : callback(new Error('Origin não fornecido'));
+    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error('Origem não permitida pelo CORS'));
   },
   credentials: true,
@@ -96,6 +99,16 @@ const criticalLimiter = rateLimit({
   message: { error: 'Muitas operações. Aguarde 1 minuto.' },
 });
 app.use('/api/payments', criticalLimiter);
+
+// Rate limit para painel super-admin (anti brute-force)
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/admin/login', adminLimiter);
 
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));

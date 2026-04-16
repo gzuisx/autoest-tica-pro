@@ -15,7 +15,7 @@ export const authRouter = Router();
 
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 3,
   message: { error: 'Muitas tentativas. Aguarde 1 hora antes de tentar novamente.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -46,12 +46,12 @@ const loginSchema = z.object({
   slug: z.string(),
 });
 
-const REFRESH_TOKEN_EXPIRY_DAYS = 30;
+const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateAccessToken(payload: { userId: string; tenantId: string; role: string; email: string }) {
-  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '8h' });
+  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '1h' });
 }
 
 async function createRefreshToken(userId: string, tenantId: string): Promise<string> {
