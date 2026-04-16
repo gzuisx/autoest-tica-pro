@@ -466,9 +466,9 @@
             <li><span class="check">✓</span> Pagamentos parciais e parcelados</li>
             <li><span class="check">✓</span> Integração WhatsApp</li>
           </ul>
-          <a href="#contact" class="btn btn-outline" style="width:100%;text-align:center;margin-top:auto" onclick="trackCTA('pricing-basic')">
-            Começar 14 dias grátis
-          </a>
+          <button class="btn btn-outline" style="width:100%;text-align:center;margin-top:auto" onclick="assinar('basic')">
+            Assinar Basic — R$97/mês
+          </button>
         </div>
 
         <!-- PRO -->
@@ -495,9 +495,9 @@
             <li><span class="check pro">✓</span> Avaliação pós-serviço (Google)</li>
             <li><span class="check pro">✓</span> Suporte prioritário</li>
           </ul>
-          <a href="#contact" class="btn btn-primary" style="width:100%;text-align:center;margin-top:auto" onclick="trackCTA('pricing-pro')">
-            Começar 14 dias grátis
-          </a>
+          <button class="btn btn-primary" style="width:100%;text-align:center;margin-top:auto" onclick="assinar('pro')">
+            Assinar Pro — R$197/mês
+          </button>
         </div>
 
       </div>
@@ -684,6 +684,32 @@
     function trackCTA(location, email) {
       if (typeof gtag !== 'undefined') {
         gtag('event', 'cta_click', { event_category: 'conversion', event_label: location });
+      }
+    }
+
+    // ─── Checkout Mercado Pago ────────────────────────────────────────────────
+    const BACKEND_URL = 'https://autoest-tica-pro-production.up.railway.app';
+
+    async function assinar(plan) {
+      const btn = event.currentTarget;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Aguarde...';
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/mercadopago/landing-preference`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan }),
+        });
+
+        if (!res.ok) throw new Error('Erro ao iniciar pagamento');
+        const data = await res.json();
+        window.location.href = data.checkoutUrl;
+      } catch (err) {
+        alert('Erro ao iniciar pagamento. Tente novamente em instantes.');
+        btn.disabled = false;
+        btn.textContent = originalText;
       }
     }
   </script>

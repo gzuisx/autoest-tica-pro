@@ -17,8 +17,9 @@ model Tenant {
   email       String?
   address     String?
   logoUrl     String?
-  plan        String   @default("basic") // basic | pro
-  active      Boolean  @default(true)
+  plan          String    @default("free") // free | basic | pro
+  planExpiresAt DateTime?
+  active        Boolean   @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
