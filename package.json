@@ -1,0 +1,11 @@
+{
+  "name": "autoestetia-pro",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm run build --prefix backend",
+    "start": "npm start --prefix backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
