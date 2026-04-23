@@ -45,14 +45,19 @@ app.use(helmet({
   },
 }));
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim());
+
+console.log('[CORS] Origens permitidas:', allowedOrigins);
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) {
-      // Em dev permite Postman/curl; em prod bloqueia requests sem Origin
       return isDev ? callback(null, true) : callback(new Error('Origin não fornecido'));
     }
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.error('[CORS] Origem rejeitada:', origin);
     callback(new Error('Origem não permitida pelo CORS'));
   },
   credentials: true,
