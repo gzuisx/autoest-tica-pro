@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { createHmac } from 'crypto';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
 import { authenticate } from '../middleware/auth';
 
@@ -9,12 +11,60 @@ const mp = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
 });
 
+// Rate limit para rota pública da landing (evita abuso de API do MP)
+const landingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Muitas tentativas. Aguarde 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const PLANS = {
   basic: { price: 97, label: 'AutoEstética Pro — Plano Basic' },
   pro:   { price: 197, label: 'AutoEstética Pro — Plano Pro' },
 };
 
-// ─── Criar preferência de pagamento ──────────────────────────────────────────
+// ─── Validação de assinatura do webhook do Mercado Pago ───────────────────────
+// IMPORTANTE: Configurar MP_WEBHOOK_SECRET no Railway com o secret do painel MP
+// para que esta validação funcione em produção.
+function validateMPWebhookSignature(req: Request): boolean {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn('[MP Webhook] AVISO: MP_WEBHOOK_SECRET não configurado — validação ignorada. Configure no Railway!');
+    return true;
+  }
+
+  const signatureHeader = req.headers['x-signature'] as string | undefined;
+  const requestId = req.headers['x-request-id'] as string | undefined;
+
+  if (!signatureHeader || !requestId) {
+    console.warn('[MP Webhook] Headers x-signature ou x-request-id ausentes');
+    return false;
+  }
+
+  // Formato: "ts=TIMESTAMP,v1=HMAC_SHA256"
+  const ts = signatureHeader.split(',').find(p => p.startsWith('ts='))?.split('=')[1];
+  const v1 = signatureHeader.split(',').find(p => p.startsWith('v1='))?.split('=')[1];
+
+  if (!ts || !v1) {
+    console.warn('[MP Webhook] Formato de x-signature inválido');
+    return false;
+  }
+
+  const dataId = req.body?.data?.id;
+  const template = `id:${dataId};request-id:${requestId};ts:${ts};`;
+  const expectedHash = createHmac('sha256', secret).update(template).digest('hex');
+
+  if (expectedHash !== v1) {
+    console.warn('[MP Webhook] Assinatura inválida — possível tentativa de fraude bloqueada');
+    return false;
+  }
+
+  return true;
+}
+
+// ─── POST /api/mercadopago/create-preference — autenticado (upgrade no app) ──
 mercadopagoRouter.post('/create-preference', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { plan } = req.body as { plan: 'basic' | 'pro' };
 
@@ -69,13 +119,18 @@ mercadopagoRouter.post('/create-preference', authenticate, async (req: Request, 
   }
 });
 
-// ─── Webhook — Mercado Pago notifica pagamentos ───────────────────────────────
+// ─── POST /api/mercadopago/webhook — notificações do Mercado Pago ─────────────
 mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<void> => {
-  const { type, data } = req.body;
-
   // Responde 200 imediatamente para o MP não retentar
   res.sendStatus(200);
 
+  // Valida assinatura antes de processar
+  if (!validateMPWebhookSignature(req)) {
+    console.warn('[MP Webhook] Requisição rejeitada: assinatura inválida');
+    return;
+  }
+
+  const { type, data } = req.body;
   if (type !== 'payment' || !data?.id) return;
 
   try {
@@ -89,7 +144,16 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
     const externalRef = payment.external_reference;
     if (!externalRef) return;
 
-    const [tenantId, plan] = externalRef.split('|');
+    const parts = externalRef.split('|');
+
+    // Pagamento da landing: "landing|plan|email" — cria tenant ainda não existe
+    if (parts[0] === 'landing') {
+      console.log(`[MP Webhook] Pagamento landing aprovado: plano=${parts[1]} email=${parts[2]}`);
+      return;
+    }
+
+    // Pagamento do app: "tenantId|plan"
+    const [tenantId, plan] = parts;
     if (!tenantId || !['basic', 'pro'].includes(plan)) return;
 
     await prisma.tenant.update({
@@ -100,14 +164,14 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
       },
     });
 
-    console.log(`[MP] Plano atualizado: tenant=${tenantId} plano=${plan}`);
+    console.log(`[MP Webhook] Plano atualizado: tenant=${tenantId} plano=${plan}`);
   } catch (err: any) {
-    console.error('[MP] Erro ao processar webhook:', err?.message);
+    console.error('[MP Webhook] Erro ao processar:', err?.message);
   }
 });
 
-// ─── Rota pública — criar preferência da landing page ────────────────────────
-mercadopagoRouter.post('/landing-preference', async (req: Request, res: Response): Promise<void> => {
+// ─── POST /api/mercadopago/landing-preference — rota pública (landing page) ───
+mercadopagoRouter.post('/landing-preference', landingLimiter, async (req: Request, res: Response): Promise<void> => {
   const { plan, email, name } = req.body as { plan: 'basic' | 'pro'; email?: string; name?: string };
 
   if (!PLANS[plan]) {
@@ -115,7 +179,7 @@ mercadopagoRouter.post('/landing-preference', async (req: Request, res: Response
     return;
   }
 
-  const landingUrl = process.env.LANDING_URL || process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
+  const landingUrl = process.env.LANDING_URL || 'https://autoest-tica-pro-landing.vercel.app';
 
   try {
     const preference = new Preference(mp);

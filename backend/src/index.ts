@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { sanitizeBody } from './middleware/sanitize';
 
+import { prisma } from './utils/prisma';
 import { authRouter } from './routes/auth';
 import { clientsRouter } from './routes/clients';
 import { vehiclesRouter } from './routes/vehicles';
@@ -158,8 +159,44 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
-app.listen(PORT, () => {
+// ─── Jobs de limpeza periódica ────────────────────────────────────────────────
+
+async function cleanupExpiredRefreshTokens() {
+  try {
+    const { count } = await prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    if (count > 0) console.log(`[Cleanup] ${count} refresh token(s) expirado(s) removido(s)`);
+  } catch (err) {
+    console.error('[Cleanup] Erro ao limpar refresh tokens:', err);
+  }
+}
+
+async function downgradeExpiredPlans() {
+  try {
+    const { count } = await prisma.tenant.updateMany({
+      where: {
+        planExpiresAt: { lt: new Date() },
+        plan: { not: 'free' },
+      },
+      data: { plan: 'free', planExpiresAt: null },
+    });
+    if (count > 0) console.log(`[Cleanup] ${count} plano(s) expirado(s) rebaixado(s) para free`);
+  } catch (err) {
+    console.error('[Cleanup] Erro ao rebaixar planos expirados:', err);
+  }
+}
+
+app.listen(PORT, async () => {
   console.log(`🚀 AutoEstética Pro API rodando na porta ${PORT}`);
+
+  // Executa limpeza imediata no startup
+  await Promise.all([cleanupExpiredRefreshTokens(), downgradeExpiredPlans()]);
+
+  // Agenda limpeza a cada 6 horas
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  setInterval(cleanupExpiredRefreshTokens, SIX_HOURS);
+  setInterval(downgradeExpiredPlans, SIX_HOURS);
 });
 
 export default app;

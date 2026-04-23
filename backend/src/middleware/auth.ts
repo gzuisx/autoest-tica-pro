@@ -30,15 +30,27 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
 
-    // Verifica se o tenant ainda está ativo
+    // Verifica se o tenant está ativo e se o plano não expirou
     const tenant = await prisma.tenant.findUnique({
       where: { id: payload.tenantId },
-      select: { active: true },
+      select: { active: true, plan: true, planExpiresAt: true },
     });
 
     if (!tenant?.active) {
       res.status(403).json({ error: 'Conta inativa. Entre em contato com o suporte.' });
       return;
+    }
+
+    // Se o plano pago expirou, rebaixa para free em background
+    if (
+      tenant.planExpiresAt &&
+      tenant.planExpiresAt < new Date() &&
+      tenant.plan !== 'free'
+    ) {
+      prisma.tenant.update({
+        where: { id: payload.tenantId },
+        data: { plan: 'free', planExpiresAt: null },
+      }).catch((err) => console.error('[Auth] Erro ao rebaixar plano expirado:', err));
     }
 
     req.user = payload;

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Save, Building2, Users, Plus, X, Eye, EyeOff, Zap } from 'lucide-react'
+import { Save, Building2, Users, Plus, X, Eye, EyeOff, Zap, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -220,8 +220,31 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = user?.role === 'admin'
   const [showAddUser, setShowAddUser] = useState(false)
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
   const activeTab = searchParams.get('tab') || 'general'
+  const paymentStatus = searchParams.get('payment')
   const { data: planUsage, loading: planLoading } = usePlanUsage()
+
+  async function handleUpgrade(plan: 'basic' | 'pro') {
+    try {
+      setUpgradeLoading(true)
+      const { data } = await api.post('/mercadopago/create-preference', { plan })
+      window.location.href = data.checkoutUrl
+    } catch {
+      alert('Erro ao iniciar pagamento. Tente novamente.')
+    } finally {
+      setUpgradeLoading(false)
+    }
+  }
+
+  function dismissPaymentStatus() {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('payment')
+      next.delete('plan')
+      return next
+    })
+  }
 
   function setTab(tab: string) {
     setSearchParams({ tab })
@@ -265,6 +288,44 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
         <p className="text-sm text-muted-foreground">Informações da sua estética</p>
       </div>
+
+      {/* Banner de status do pagamento */}
+      {paymentStatus === 'success' && (
+        <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
+          <CheckCircle className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-green-800">Pagamento aprovado!</p>
+            <p className="text-sm text-green-700">Seu plano foi atualizado. Se ainda aparecer o plano anterior, aguarde alguns instantes e recarregue a página.</p>
+          </div>
+          <button onClick={dismissPaymentStatus} className="text-green-600 hover:text-green-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {paymentStatus === 'failure' && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-800">Pagamento não concluído</p>
+            <p className="text-sm text-red-700">Houve um problema com o pagamento. Tente novamente.</p>
+          </div>
+          <button onClick={dismissPaymentStatus} className="text-red-600 hover:text-red-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {paymentStatus === 'pending' && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <Loader2 className="h-5 w-5 shrink-0 text-amber-600 mt-0.5 animate-spin" />
+          <div className="flex-1">
+            <p className="font-semibold text-amber-800">Pagamento em análise</p>
+            <p className="text-sm text-amber-700">Seu pagamento está sendo processado. Você receberá uma confirmação em breve.</p>
+          </div>
+          <button onClick={dismissPaymentStatus} className="text-amber-600 hover:text-amber-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-muted p-1">
@@ -457,7 +518,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Upgrade CTA — hide if already pro */}
+          {/* Upgrade CTA — esconde se já é pro */}
           {planUsage && planUsage.plan !== 'pro' && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-6">
               <h3 className="font-semibold text-foreground mb-1">Faça upgrade para o Plano Pro</h3>
@@ -468,15 +529,29 @@ export default function SettingsPage() {
                 <span className="text-3xl font-bold text-primary">R$ 197</span>
                 <span className="text-sm text-muted-foreground">/mês</span>
               </div>
-              <a
-                href="https://wa.me/5511999999999?text=Olá! Quero fazer upgrade para o Plano Pro do AutoEstética Pro."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
-              >
-                <Zap className="h-4 w-4" />
-                Quero o Plano Pro
-              </a>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  onClick={() => handleUpgrade('pro')}
+                  disabled={upgradeLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {upgradeLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+                  {upgradeLoading ? 'Aguarde...' : 'Assinar Plano Pro'}
+                </button>
+                {planUsage.plan === 'free' && (
+                  <button
+                    onClick={() => handleUpgrade('basic')}
+                    disabled={upgradeLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-6 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-60"
+                  >
+                    Assinar Basic — R$ 97/mês
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

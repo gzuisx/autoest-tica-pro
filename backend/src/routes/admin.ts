@@ -6,6 +6,18 @@ export const adminRouter = Router();
 
 // ─── Middleware de autenticação do super admin ────────────────────────────────
 
+// Usa SUPER_ADMIN_JWT_SECRET para assinar tokens (separado da senha de login)
+// Fallback para SUPER_ADMIN_SECRET para compatibilidade retroativa
+function getAdminJwtSecret(): string {
+  return process.env.SUPER_ADMIN_JWT_SECRET || process.env.SUPER_ADMIN_SECRET || '';
+}
+
+// Usa SUPER_ADMIN_PASSWORD para autenticação de login
+// Fallback para SUPER_ADMIN_SECRET para compatibilidade retroativa
+function getAdminPassword(): string {
+  return process.env.SUPER_ADMIN_PASSWORD || process.env.SUPER_ADMIN_SECRET || '';
+}
+
 function adminAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -14,7 +26,7 @@ function adminAuth(req: Request, res: Response, next: NextFunction) {
   }
   const token = authHeader.split(' ')[1];
   try {
-    jwt.verify(token, process.env.SUPER_ADMIN_SECRET!);
+    jwt.verify(token, getAdminJwtSecret());
     next();
   } catch {
     res.status(401).json({ error: 'Token de admin inválido' });
@@ -25,11 +37,12 @@ function adminAuth(req: Request, res: Response, next: NextFunction) {
 
 adminRouter.post('/login', (req, res) => {
   const { secret } = req.body;
-  if (!secret || secret !== process.env.SUPER_ADMIN_SECRET) {
+  const adminPassword = getAdminPassword();
+  if (!adminPassword || !secret || secret !== adminPassword) {
     res.status(401).json({ error: 'Senha incorreta' });
     return;
   }
-  const token = jwt.sign({ role: 'superadmin' }, process.env.SUPER_ADMIN_SECRET!, { expiresIn: '12h' });
+  const token = jwt.sign({ role: 'superadmin' }, getAdminJwtSecret(), { expiresIn: '12h' });
   res.json({ token });
 });
 

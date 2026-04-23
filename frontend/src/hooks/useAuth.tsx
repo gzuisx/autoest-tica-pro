@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import api from '../services/api'
+import { identifyUser, resetAnalytics } from '../lib/analytics'
 
 interface Tenant {
   id: string
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(data.user))
     localStorage.setItem('tenant', JSON.stringify(data.tenant))
     setState({ user: data.user, tenant: data.tenant, isAuthenticated: true, isLoading: false })
+    identifyUser(data.user.id, { email: data.user.email, name: data.user.name, tenantId: data.tenant.id })
   }
 
   function setSession(data: SessionData) {
@@ -76,9 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(data.user))
     localStorage.setItem('tenant', JSON.stringify(data.tenant))
     setState({ user: data.user, tenant: data.tenant, isAuthenticated: true, isLoading: false })
+    identifyUser(data.user.id, { email: data.user.email, name: data.user.name, tenantId: data.tenant.id })
   }
 
   function logout() {
+    resetAnalytics()
     localStorage.clear()
     setState({ user: null, tenant: null, isAuthenticated: false, isLoading: false })
     window.location.href = '/login'

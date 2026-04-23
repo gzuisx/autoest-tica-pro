@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Car } from 'lucide-react'
+import { Car, CheckCircle } from 'lucide-react'
 import api from '../services/api'
 
 interface RegisterForm {
@@ -13,8 +13,16 @@ interface RegisterForm {
   phone: string
 }
 
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic (R$ 97/mês)',
+  pro: 'Pro (R$ 197/mês)',
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paymentSuccess = searchParams.get('payment') === 'success'
+  const paidPlan = searchParams.get('plan') || ''
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -61,6 +69,19 @@ export default function RegisterPage() {
             <p className="text-slate-400">Cadastre sua estética agora mesmo</p>
           </div>
         </div>
+
+        {paymentSuccess && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-green-300 bg-green-50 p-4">
+            <CheckCircle className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-green-800">Pagamento aprovado!</p>
+              <p className="text-sm text-green-700">
+                {paidPlan ? `Plano ${PLAN_LABELS[paidPlan] ?? paidPlan} ativo. ` : ''}
+                Agora crie sua conta para acessar o sistema.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
