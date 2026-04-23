@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { createHmac } from 'crypto';
+import { createHmac, randomBytes } from 'crypto';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
 import { authenticate } from '../middleware/auth';
+import { sendRegistrationLinkEmail } from '../utils/email';
 
 export const mercadopagoRouter = Router();
 
@@ -146,9 +147,29 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
 
     const parts = externalRef.split('|');
 
-    // Pagamento da landing: "landing|plan|email" — cria tenant ainda não existe
+    // Pagamento da landing: "landing|plan|email" — gera token de cadastro e envia email
     if (parts[0] === 'landing') {
-      console.log(`[MP Webhook] Pagamento landing aprovado: plano=${parts[1]} email=${parts[2]}`);
+      const plan = parts[1] as 'basic' | 'pro';
+      const email = parts[2];
+
+      if (!email || email === 'unknown' || !['basic', 'pro'].includes(plan)) {
+        console.warn('[MP Webhook] Landing payment sem email válido:', externalRef);
+        return;
+      }
+
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+
+      await prisma.registrationToken.create({
+        data: { token, plan, email, expiresAt },
+      });
+
+      const landingUrl = process.env.LANDING_URL || 'https://autoest-tica-pro-landing.vercel.app';
+      const registerUrl = `${landingUrl}/registro?token=${token}`;
+
+      await sendRegistrationLinkEmail({ to: email, plan, registerUrl });
+
+      console.log(`[MP Webhook] Token de cadastro gerado e email enviado: plano=${plan} email=${email}`);
       return;
     }
 

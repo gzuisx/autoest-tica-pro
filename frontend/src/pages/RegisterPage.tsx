@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Car, CheckCircle } from 'lucide-react'
+import { Car, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import api from '../services/api'
 
 interface RegisterForm {
@@ -21,12 +21,36 @@ const PLAN_LABELS: Record<string, string> = {
 export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  // Parâmetros de retorno do MP (sem token)
   const paymentSuccess = searchParams.get('payment') === 'success'
   const paidPlan = searchParams.get('plan') || ''
+
+  // Token de cadastro pós-pagamento (vindo do email)
+  const registrationToken = searchParams.get('token') || ''
+
+  const [tokenStatus, setTokenStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
+  const [tokenPlan, setTokenPlan] = useState('')
+  const [tokenEmail, setTokenEmail] = useState('')
+
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegisterForm>()
+
+  // Valida token ao carregar a página
+  useEffect(() => {
+    if (!registrationToken) return
+    setTokenStatus('loading')
+    api.get(`/auth/registration-token?token=${registrationToken}`)
+      .then(({ data }) => {
+        setTokenStatus('valid')
+        setTokenPlan(data.plan)
+        setTokenEmail(data.email)
+        setValue('email', data.email)
+      })
+      .catch(() => setTokenStatus('invalid'))
+  }, [registrationToken])
 
   function generateSlug(name: string) {
     return name
@@ -43,8 +67,9 @@ export default function RegisterPage() {
     try {
       setLoading(true)
       setError('')
-      const { data: result } = await api.post('/auth/register', data)
-      // Backend returns pendingVerification — redirect to verify page
+      const payload: any = { ...data }
+      if (registrationToken) payload.registrationToken = registrationToken
+      const { data: result } = await api.post('/auth/register', payload)
       if (result.pendingVerification) {
         navigate(`/verify-email?email=${encodeURIComponent(result.email)}`)
         return
@@ -70,7 +95,36 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {paymentSuccess && (
+        {/* Banner: token de pagamento válido */}
+        {tokenStatus === 'loading' && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-600" />
+            <p className="text-sm text-blue-700">Validando seu pagamento...</p>
+          </div>
+        )}
+        {tokenStatus === 'valid' && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-green-300 bg-green-50 p-4">
+            <CheckCircle className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-green-800">Pagamento confirmado!</p>
+              <p className="text-sm text-green-700">
+                Plano <strong>{PLAN_LABELS[tokenPlan] ?? tokenPlan}</strong> será ativado automaticamente ao criar sua conta.
+              </p>
+            </div>
+          </div>
+        )}
+        {tokenStatus === 'invalid' && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-800">Link inválido ou expirado</p>
+              <p className="text-sm text-red-700">Este link de cadastro não é mais válido. Entre em contato com o suporte.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner: retorno direto do MP sem token */}
+        {paymentSuccess && !registrationToken && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-green-300 bg-green-50 p-4">
             <CheckCircle className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
             <div>
@@ -136,8 +190,12 @@ export default function RegisterPage() {
                 {...register('email', { required: 'Obrigatório' })}
                 type="email"
                 placeholder="seu@email.com"
-                className="w-full rounded-lg border border-input px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                readOnly={tokenStatus === 'valid'}
+                className="w-full rounded-lg border border-input px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-muted"
               />
+              {tokenStatus === 'valid' && (
+                <p className="mt-1 text-xs text-muted-foreground">E-mail vinculado ao pagamento</p>
+              )}
             </div>
 
             <div>
@@ -157,7 +215,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || tokenStatus === 'invalid'}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
             >
               {loading ? 'Criando conta...' : 'Criar minha estética'}

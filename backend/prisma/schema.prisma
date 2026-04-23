@@ -75,6 +75,19 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// ─── TOKEN DE CADASTRO PÓS-PAGAMENTO ─────────────────────────────────────────
+// Gerado após pagamento aprovado na landing. Link único e de uso único.
+
+model RegistrationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  plan      String   // basic | pro
+  email     String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
 
 model AuditLog {

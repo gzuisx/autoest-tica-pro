@@ -161,6 +161,61 @@ export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<void> 
   await send(opts.to, `Bem-vindo à AutoEstética Pro, ${opts.name}!`, html);
 }
 
+// ─── Link de cadastro pós-pagamento ──────────────────────────────────────────
+
+interface SendRegistrationLinkOptions {
+  to: string;
+  plan: 'basic' | 'pro';
+  registerUrl: string; // URL com ?token=...
+}
+
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic — R$ 97/mês',
+  pro: 'Pro — R$ 197/mês',
+};
+
+export async function sendRegistrationLinkEmail(opts: SendRegistrationLinkOptions): Promise<void> {
+  const planLabel = PLAN_LABELS[opts.plan] ?? opts.plan;
+  const html = baseLayout(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Pagamento confirmado! Crie sua conta</h2>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:15px;">
+      Seu pagamento do <strong>Plano ${planLabel}</strong> foi aprovado.
+      Clique no botão abaixo para criar sua conta e começar a usar o AutoEstética Pro agora mesmo.
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#15803d;font-weight:700;">Seu plano inclui:</p>
+      ${opts.plan === 'pro' ? `
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Usuários ilimitados</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Notificação automática no WhatsApp</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Relatórios avançados + PDF</p>
+        <p style="margin:0;font-size:14px;color:#374151;">&#10003; Suporte prioritário via WhatsApp</p>
+      ` : `
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Agenda com detecção de conflito</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Ordens de serviço com fotos</p>
+        <p style="margin:0 0 4px;font-size:14px;color:#374151;">&#10003; Relatórios básicos (CSV)</p>
+        <p style="margin:0;font-size:14px;color:#374151;">&#10003; Até 2 usuários</p>
+      `}
+    </div>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${opts.registerUrl}"
+         style="background:#4f46e5;color:#ffffff;padding:16px 40px;border-radius:8px;
+                text-decoration:none;font-size:16px;font-weight:700;display:inline-block;">
+        Criar minha conta agora
+      </a>
+    </div>
+    <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">
+      &#9679; Este link é <strong>de uso único</strong> e expira em <strong>48 horas</strong>.
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;color:#6b7280;">
+      &#9679; Se você não realizou este pagamento, entre em contato conosco.
+    </p>
+    <p style="margin:0;font-size:13px;color:#9ca3af;word-break:break-all;">
+      Ou cole este link no navegador: <a href="${opts.registerUrl}" style="color:#6366f1;">${opts.registerUrl}</a>
+    </p>
+  `);
+  await send(opts.to, `Seu acesso ao AutoEstética Pro está pronto — Plano ${planLabel}`, html);
+}
+
 // ─── Notificação de novo lead (landing page) → Gabriel ───────────────────────
 
 interface SendLeadNotificationOptions {

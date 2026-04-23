@@ -38,6 +38,7 @@ const registerSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   phone: z.string().optional(),
+  registrationToken: z.string().optional(), // token pós-pagamento da landing
 });
 
 const loginSchema = z.object({
@@ -74,11 +75,42 @@ function generateVerificationCode(): { code: string; codeHash: string } {
   return { code, codeHash };
 }
 
+// ─── GET /api/auth/registration-token — valida token de cadastro pós-pagamento
+authRouter.get('/registration-token', async (req, res) => {
+  const { token } = req.query;
+  if (!token || typeof token !== 'string') {
+    res.status(400).json({ error: 'Token não fornecido' });
+    return;
+  }
+
+  const record = await prisma.registrationToken.findUnique({ where: { token } });
+
+  if (!record || record.used || record.expiresAt < new Date()) {
+    res.status(400).json({ error: 'Link inválido, já utilizado ou expirado.' });
+    return;
+  }
+
+  res.json({ valid: true, plan: record.plan, email: record.email });
+});
+
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 
 authRouter.post('/register', async (req, res) => {
   try {
     const data = registerSchema.parse(req.body);
+
+    // Valida token de cadastro pós-pagamento (se fornecido)
+    let registrationTokenRecord: { id: string; plan: string } | null = null;
+    if (data.registrationToken) {
+      const record = await prisma.registrationToken.findUnique({
+        where: { token: data.registrationToken },
+      });
+      if (!record || record.used || record.expiresAt < new Date()) {
+        res.status(400).json({ error: 'Link de cadastro inválido ou expirado. Solicite um novo.' });
+        return;
+      }
+      registrationTokenRecord = record;
+    }
 
     const slugExists = await prisma.tenant.findUnique({ where: { slug: data.tenantSlug } });
     if (slugExists) {
@@ -88,7 +120,13 @@ authRouter.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(data.password, 12);
     const { code, codeHash } = generateVerificationCode();
-    const verificationExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+    const verificationExpiry = new Date(Date.now() + 30 * 60 * 1000);
+
+    // Se veio com token de pagamento, aplica o plano pago automaticamente
+    const paidPlan = registrationTokenRecord?.plan;
+    const planExpiresAt = paidPlan
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      : undefined;
 
     const tenant = await prisma.tenant.create({
       data: {
@@ -96,6 +134,7 @@ authRouter.post('/register', async (req, res) => {
         slug: data.tenantSlug,
         phone: data.phone,
         email: data.email,
+        ...(paidPlan && { plan: paidPlan, planExpiresAt }),
         users: {
           create: {
             name: data.ownerName,
@@ -113,7 +152,14 @@ authRouter.post('/register', async (req, res) => {
 
     const user = tenant.users[0];
 
-    // Envia e-mail com código (em dev apenas loga no console)
+    // Marca token como usado
+    if (registrationTokenRecord) {
+      await prisma.registrationToken.update({
+        where: { id: registrationTokenRecord.id },
+        data: { used: true },
+      });
+    }
+
     await sendVerificationEmail({ to: user.email, name: user.name, code });
 
     res.status(201).json({
