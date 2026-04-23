@@ -611,6 +611,8 @@ ul { list-style: none; }
   border-radius: var(--radius);
   padding: 32px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .pricing-card-featured {
