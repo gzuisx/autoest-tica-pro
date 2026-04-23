@@ -45,11 +45,17 @@ app.use(helmet({
   },
 }));
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim());
+const builtInOrigins = [
+  'http://localhost:5173',
+  'https://autoest-tica-pro.vercel.app',
+  'https://autoest-tica-pro-landing.vercel.app',
+];
 
-console.log('[CORS] Origens permitidas:', allowedOrigins);
+const envOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = [...new Set([...builtInOrigins, ...envOrigins])];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -57,7 +63,6 @@ app.use(cors({
       return isDev ? callback(null, true) : callback(new Error('Origin não fornecido'));
     }
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.error('[CORS] Origem rejeitada:', origin);
     callback(new Error('Origem não permitida pelo CORS'));
   },
   credentials: true,
