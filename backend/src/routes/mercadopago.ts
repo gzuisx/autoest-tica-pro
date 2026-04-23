@@ -164,8 +164,8 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
         data: { token, plan, email, expiresAt },
       });
 
-      const landingUrl = process.env.LANDING_URL || 'https://autoest-tica-pro-landing.vercel.app';
-      const registerUrl = `${landingUrl}/registro?token=${token}`;
+      const frontendUrl = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
+      const registerUrl = `${frontendUrl}/register?token=${token}`;
 
       await sendRegistrationLinkEmail({ to: email, plan, registerUrl });
 
@@ -201,6 +201,7 @@ mercadopagoRouter.post('/landing-preference', landingLimiter, async (req: Reques
   }
 
   const landingUrl = process.env.LANDING_URL || 'https://autoest-tica-pro-landing.vercel.app';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
 
   try {
     const preference = new Preference(mp);
@@ -220,7 +221,7 @@ mercadopagoRouter.post('/landing-preference', landingLimiter, async (req: Reques
           name: name || undefined,
         },
         back_urls: {
-          success: `${landingUrl}/registro?payment=success&plan=${plan}`,
+          success: `${frontendUrl}/register?payment=success&plan=${plan}`,
           failure: `${landingUrl}?payment=failure`,
           pending: `${landingUrl}?payment=pending`,
         },
