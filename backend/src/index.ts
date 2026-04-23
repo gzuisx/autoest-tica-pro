@@ -29,6 +29,9 @@ const app = express();
 const PORT = process.env.PORT || 3333;
 const isDev = process.env.NODE_ENV === 'development';
 
+// Railway usa proxy reverso — necessário para rate limit e IP correto funcionarem
+app.set('trust proxy', 1);
+
 // ─── Security ────────────────────────────────────────────────────────────────
 app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true },
