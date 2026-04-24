@@ -171,23 +171,29 @@ export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<void> 
 
 interface SendRegistrationLinkOptions {
   to: string;
-  plan: 'basic' | 'pro';
+  plan: 'basic' | 'pro' | 'trial';
   activationCode: string; // código curto legível (ex: XKAP92BM)
   registerUrl: string;    // URL com ?token=... (para o botão do e-mail)
 }
 
 const PLAN_LABELS: Record<string, string> = {
   basic: 'Basic — R$ 97/mês',
-  pro: 'Pro — R$ 197/mês',
+  pro:   'Pro — R$ 197/mês',
+  trial: 'Gratuito — 14 dias',
 };
 
 export async function sendRegistrationLinkEmail(opts: SendRegistrationLinkOptions): Promise<void> {
   const planLabel = PLAN_LABELS[opts.plan] ?? opts.plan;
+  const isTrial = opts.plan === 'trial';
   const html = baseLayout(`
-    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Pagamento confirmado! Crie sua conta</h2>
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">
+      ${isTrial ? 'Seu teste grátis está pronto!' : 'Pagamento confirmado! Crie sua conta'}
+    </h2>
     <p style="margin:0 0 20px;color:#6b7280;font-size:15px;">
-      Seu pagamento do <strong>Plano ${planLabel}</strong> foi aprovado.
-      Use o código abaixo para criar sua conta no AutoEstética Pro.
+      ${isTrial
+        ? 'Você ganhou <strong>14 dias grátis</strong> do AutoEstética Pro. Use o código abaixo para criar sua conta agora mesmo — sem precisar de cartão.'
+        : `Seu pagamento do <strong>Plano ${planLabel}</strong> foi aprovado. Use o código abaixo para criar sua conta no AutoEstética Pro.`
+      }
     </p>
     <div style="background:#f0f0ff;border:2px dashed #6366f1;border-radius:10px;padding:28px;text-align:center;margin-bottom:24px;">
       <p style="margin:0 0 8px;font-size:13px;color:#6366f1;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Seu código de ativação</p>

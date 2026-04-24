@@ -122,10 +122,12 @@ authRouter.post('/register', async (req, res) => {
     const { code, codeHash } = generateVerificationCode();
     const verificationExpiry = new Date(Date.now() + 30 * 60 * 1000);
 
-    // Se veio com token de pagamento, aplica o plano pago automaticamente
-    const paidPlan = registrationTokenRecord?.plan;
-    const planExpiresAt = paidPlan
-      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    // Aplica plano do token (trial = basic por 14 dias; basic/pro = 30 dias)
+    const tokenPlan = registrationTokenRecord?.plan;
+    const effectivePlan = tokenPlan === 'trial' ? 'basic' : tokenPlan;
+    const planDays = tokenPlan === 'trial' ? 14 : 30;
+    const planExpiresAt = effectivePlan
+      ? new Date(Date.now() + planDays * 24 * 60 * 60 * 1000)
       : undefined;
 
     const tenant = await prisma.tenant.create({
@@ -134,7 +136,7 @@ authRouter.post('/register', async (req, res) => {
         slug: data.tenantSlug,
         phone: data.phone,
         email: data.email,
-        ...(paidPlan && { plan: paidPlan, planExpiresAt }),
+        ...(effectivePlan && { plan: effectivePlan, planExpiresAt }),
         users: {
           create: {
             name: data.ownerName,

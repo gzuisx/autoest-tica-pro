@@ -654,6 +654,37 @@
     </div>
   </section>
 
+  <!-- ─── CHECKOUT MODAL ────────────────────────────────────────────────────── -->
+  <div id="checkoutModal" class="checkout-modal">
+    <div class="checkout-modal-overlay" onclick="closeCheckoutModal()"></div>
+    <div class="checkout-modal-box">
+      <button class="checkout-modal-close" onclick="closeCheckoutModal()" aria-label="Fechar">&#x2715;</button>
+      <div class="checkout-modal-plan" id="modalPlanLabel">&#9632; Plano Basic</div>
+      <h3>Informe seu e-mail</h3>
+      <p>Após o pagamento, enviaremos um código de ativação para criar sua conta.</p>
+      <input
+        type="email"
+        id="checkoutEmail"
+        class="checkout-modal-input"
+        placeholder="seu@email.com"
+        onkeydown="if(event.key==='Enter') confirmarCheckout()"
+      />
+      <div id="checkoutError" class="checkout-modal-error">Por favor, informe um e-mail válido.</div>
+      <input
+        type="text"
+        id="checkoutName"
+        class="checkout-modal-input"
+        placeholder="Seu nome (opcional)"
+        onkeydown="if(event.key==='Enter') confirmarCheckout()"
+      />
+      <button id="checkoutSubmitBtn" class="checkout-modal-submit" onclick="confirmarCheckout()">
+        Ir para pagamento
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+      <p class="checkout-modal-secure">&#128274; Pagamento seguro via Mercado Pago</p>
+    </div>
+  </div>
+
   <!-- ─── FOOTER ─────────────────────────────────────────────────────────────── -->
   <footer class="footer">
     <div class="container footer-inner">
@@ -671,44 +702,18 @@
   </footer>
 
   <script>
+    // ─── Nav ─────────────────────────────────────────────────────────────────
     function toggleMenu() {
-      const menu = document.getElementById('mobileMenu');
-      menu.classList.toggle('open');
+      document.getElementById('mobileMenu').classList.toggle('open');
     }
-
     document.querySelectorAll('#mobileMenu a').forEach(link => {
-      link.addEventListener('click', () => {
-        document.getElementById('mobileMenu').classList.remove('open');
-      });
+      link.addEventListener('click', () => document.getElementById('mobileMenu').classList.remove('open'));
     });
-
     window.addEventListener('scroll', () => {
-      const nav = document.querySelector('.nav');
-      nav.classList.toggle('scrolled', window.scrollY > 10);
+      document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 10);
     });
 
-    async function handleSubmit(e) {
-      e.preventDefault();
-      const email = document.getElementById('ctaEmail').value;
-      const btn = e.target.querySelector('button[type="submit"]');
-      btn.disabled = true;
-      btn.textContent = 'Enviando...';
-
-      try {
-        // BACKEND_URL — substitua pelo URL do Railway após o deploy
-        const backendUrl = window.BACKEND_URL || 'http://localhost:3333';
-        await fetch(`${backendUrl}/api/leads`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, source: 'cta-form' }),
-        });
-      } catch (_) { /* silencia — mostra sucesso de qualquer jeito */ }
-
-      trackCTA('cta-form', email);
-      document.getElementById('ctaSuccess').style.display = 'block';
-      e.target.style.display = 'none';
-    }
-
+    // ─── FAQ ──────────────────────────────────────────────────────────────────
     function toggleFaq(btn) {
       const item = btn.parentElement;
       const isOpen = item.classList.contains('open');
@@ -716,48 +721,122 @@
       if (!isOpen) item.classList.add('open');
     }
 
+    // ─── Smooth scroll ───────────────────────────────────────────────────────
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener('click', e => {
         const target = document.querySelector(a.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       });
     });
 
-    // Rastreamento de eventos (conecta com GA4 quando configurado)
-    function trackCTA(location, email) {
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'cta_click', { event_category: 'conversion', event_label: location });
+    // ─── Analytics ───────────────────────────────────────────────────────────
+    function trackCTA(location) {
+      if (typeof gtag !== 'undefined') gtag('event', 'cta_click', { event_category: 'conversion', event_label: location });
+    }
+
+    // ─── Backend URL ─────────────────────────────────────────────────────────
+    const BACKEND_URL = 'https://autoest-tica-pro-production.up.railway.app';
+
+    const PLAN_NAMES = { basic: 'Basic — R$ 97/mês', pro: 'Pro — R$ 197/mês' };
+
+    // ─── CTA Form (trial gratuito) ────────────────────────────────────────────
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('ctaEmail').value.trim();
+      const btn = e.target.querySelector('button[type="submit"]');
+      const successEl = document.getElementById('ctaSuccess');
+      btn.disabled = true;
+      btn.textContent = 'Criando sua conta...';
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/leads/trial`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Erro');
+
+        trackCTA('cta-form');
+        successEl.innerHTML = '&#10003; Perfeito! Enviamos um <strong>código de acesso</strong> para <strong>' + email + '</strong>. Verifique sua caixa de entrada e crie sua conta.';
+        successEl.style.display = 'block';
+        e.target.style.display = 'none';
+      } catch (err) {
+        alert(err.message || 'Erro ao criar conta. Tente novamente.');
+        btn.disabled = false;
+        btn.textContent = 'Quero começar grátis';
       }
     }
 
     // ─── Checkout Mercado Pago ────────────────────────────────────────────────
-    const BACKEND_URL = 'https://autoest-tica-pro-production.up.railway.app';
+    let _pendingPlan = null;
 
-    async function assinar(plan) {
-      const btn = event.currentTarget;
-      const originalText = btn.textContent;
+    function assinar(plan) {
+      _pendingPlan = plan;
+      document.getElementById('modalPlanLabel').textContent = '&#9632; Plano ' + (plan === 'pro' ? 'Pro — R$ 197/mês' : 'Basic — R$ 97/mês');
+      document.getElementById('checkoutEmail').value = '';
+      document.getElementById('checkoutName').value = '';
+      document.getElementById('checkoutError').classList.remove('visible');
+      document.getElementById('checkoutEmail').classList.remove('error');
+      document.getElementById('checkoutSubmitBtn').disabled = false;
+      document.getElementById('checkoutSubmitBtn').innerHTML = 'Ir para pagamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+      document.getElementById('checkoutModal').classList.add('open');
+      setTimeout(() => document.getElementById('checkoutEmail').focus(), 120);
+      trackCTA('pricing-' + plan);
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkoutModal').classList.remove('open');
+      _pendingPlan = null;
+    }
+
+    // Fecha modal com ESC
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeCheckoutModal();
+    });
+
+    async function confirmarCheckout() {
+      const emailEl = document.getElementById('checkoutEmail');
+      const email = emailEl.value.trim();
+      const name = document.getElementById('checkoutName').value.trim();
+      const errorEl = document.getElementById('checkoutError');
+      const btn = document.getElementById('checkoutSubmitBtn');
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        emailEl.classList.add('error');
+        errorEl.classList.add('visible');
+        emailEl.focus();
+        return;
+      }
+      emailEl.classList.remove('error');
+      errorEl.classList.remove('visible');
+
       btn.disabled = true;
-      btn.textContent = 'Aguarde...';
+      btn.textContent = 'Redirecionando...';
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/mercadopago/landing-preference`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan }),
+          body: JSON.stringify({ plan: _pendingPlan, email, name }),
         });
-
         if (!res.ok) throw new Error('Erro ao iniciar pagamento');
         const data = await res.json();
         window.location.href = data.checkoutUrl;
       } catch (err) {
         alert('Erro ao iniciar pagamento. Tente novamente em instantes.');
         btn.disabled = false;
-        btn.textContent = originalText;
+        btn.innerHTML = 'Ir para pagamento <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+        closeCheckoutModal();
       }
     }
+
+    // Reset botões ao voltar para a aba (caso usuário abandone o checkout)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        closeCheckoutModal();
+      }
+    });
   </script>
 
 </body>

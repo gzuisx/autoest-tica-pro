@@ -5,14 +5,9 @@ import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
 import { authenticate } from '../middleware/auth';
 import { sendRegistrationLinkEmail } from '../utils/email';
+import { generateActivationCode } from '../utils/tokens';
 
 export const mercadopagoRouter = Router();
-
-/** Gera código de ativação curto e legível (ex: XKAP92BM) */
-function generateActivationCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0, 1 para evitar confusão
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
 
 const mp = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
