@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Save, Building2, Users, Plus, X, Eye, EyeOff, Zap, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Save, Building2, Users, Plus, X, Eye, EyeOff, Zap, CheckCircle, AlertCircle, Loader2, Trash2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -261,6 +261,11 @@ export default function SettingsPage() {
     enabled: isAdmin,
   })
 
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => api.delete(`/tenant/users/${userId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tenant-users'] }),
+  })
+
   const {
     register,
     handleSubmit,
@@ -474,6 +479,20 @@ export default function SettingsPage() {
                 >
                   {ROLE_LABELS[u.role] || u.role}
                 </span>
+                {u.id !== user?.id && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Excluir o usuário "${u.name}"? Esta ação não pode ser desfeita.`)) {
+                        deleteUserMutation.mutate(u.id)
+                      }
+                    }}
+                    disabled={deleteUserMutation.isPending}
+                    className="ml-1 shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    title="Excluir usuário"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

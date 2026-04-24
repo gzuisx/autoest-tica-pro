@@ -290,91 +290,116 @@ const CHECKLIST_GROUPS = [
 
 // ─── MAPA DE DANOS ────────────────────────────────────────────────────────────
 
-type DamagePoint = { id: string; x: number; y: number }
+interface DamageSpot { id: string; x: number; y: number; label: string }
+
+// Spots pré-definidos: vista superior (160×300)
+const TOP_SPOTS: DamageSpot[] = [
+  { id: 't_fb',  x: 80,  y: 18,  label: 'Para-choque dianteiro' },
+  { id: 't_hL',  x: 50,  y: 50,  label: 'Capô esq.' },
+  { id: 't_hR',  x: 110, y: 50,  label: 'Capô dir.' },
+  { id: 't_fL',  x: 30,  y: 67,  label: 'Para-lama diant. esq.' },
+  { id: 't_fR',  x: 130, y: 67,  label: 'Para-lama diant. dir.' },
+  { id: 't_dFL', x: 30,  y: 133, label: 'Porta diant. esq.' },
+  { id: 't_dFR', x: 130, y: 133, label: 'Porta diant. dir.' },
+  { id: 't_rt',  x: 80,  y: 160, label: 'Teto' },
+  { id: 't_dRL', x: 30,  y: 178, label: 'Porta tras. esq.' },
+  { id: 't_dRR', x: 130, y: 178, label: 'Porta tras. dir.' },
+  { id: 't_rL',  x: 50,  y: 247, label: 'Para-lama tras. esq.' },
+  { id: 't_rR',  x: 110, y: 247, label: 'Para-lama tras. dir.' },
+  { id: 't_tk',  x: 80,  y: 258, label: 'Porta-malas' },
+  { id: 't_rb',  x: 80,  y: 287, label: 'Para-choque traseiro' },
+]
+
+// Spots pré-definidos: vista lateral (290×90)
+const SIDE_SPOTS: DamageSpot[] = [
+  { id: 's_fb',   x: 19,  y: 67, label: 'Para-choque dianteiro' },
+  { id: 's_pfD',  x: 58,  y: 54, label: 'Para-lama dianteiro' },
+  { id: 's_hood', x: 66,  y: 46, label: 'Capô' },
+  { id: 's_ws',   x: 108, y: 34, label: 'Para-brisa' },
+  { id: 's_teto', x: 144, y: 20, label: 'Teto' },
+  { id: 's_rw',   x: 174, y: 32, label: 'Vidro traseiro' },
+  { id: 's_trunk',x: 220, y: 44, label: 'Porta-malas' },
+  { id: 's_pfT',  x: 228, y: 54, label: 'Para-lama traseiro' },
+  { id: 's_rb',   x: 269, y: 66, label: 'Para-choque traseiro' },
+  { id: 's_dF',   x: 118, y: 63, label: 'Porta dianteira' },
+  { id: 's_dR',   x: 165, y: 63, label: 'Porta traseira' },
+]
 
 function VehicleDamageMap({
-  points,
+  activeSpots,
   onChange,
   readonly = false,
 }: {
-  points: DamagePoint[]
-  onChange?: (pts: DamagePoint[]) => void
+  activeSpots: string[]
+  onChange?: (spots: string[]) => void
   readonly?: boolean
 }) {
-  const svgRef = useRef<SVGSVGElement>(null)
+  const toggle = useCallback((id: string) => {
+    if (readonly || !onChange) return
+    onChange(activeSpots.includes(id) ? activeSpots.filter((s) => s !== id) : [...activeSpots, id])
+  }, [activeSpots, onChange, readonly])
 
-  const handleSvgClick = useCallback(
-    (e: React.MouseEvent<SVGSVGElement>) => {
-      if (readonly || !onChange) return
-      const svg = svgRef.current
-      if (!svg) return
-      const pt = svg.createSVGPoint()
-      pt.x = e.clientX
-      pt.y = e.clientY
-      const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
-      onChange([...points, { id: Date.now().toString(), x: Math.round(svgPt.x), y: Math.round(svgPt.y) }])
-    },
-    [points, onChange, readonly],
-  )
-
-  const removePoint = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      e.stopPropagation()
-      if (readonly || !onChange) return
-      onChange(points.filter((p) => p.id !== id))
-    },
-    [points, onChange, readonly],
-  )
+  const dot = (spot: DamageSpot) => {
+    const active = activeSpots.includes(spot.id)
+    return (
+      <circle
+        key={spot.id}
+        cx={spot.x} cy={spot.y} r={5}
+        fill={active ? '#111' : 'white'}
+        stroke={active ? '#111' : '#555'}
+        strokeWidth={1.2}
+        style={{ cursor: readonly ? 'default' : 'pointer' }}
+        onClick={() => toggle(spot.id)}
+      >
+        <title>{spot.label}</title>
+      </circle>
+    )
+  }
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox="0 0 160 320"
-      onClick={handleSvgClick}
-      style={{ cursor: readonly ? 'default' : 'crosshair', width: '100%', maxWidth: '160px', display: 'block' }}
-    >
-      {/* Frente label */}
-      <text x="80" y="12" textAnchor="middle" fontSize="8" fill="#666" fontFamily="Arial">FRENTE</text>
-      {/* Bumper dianteiro */}
-      <rect x="35" y="16" width="90" height="7" rx="3" fill="#ccc" stroke="#555" strokeWidth="1"/>
-      {/* Capô */}
-      <rect x="28" y="23" width="104" height="60" rx="14" fill="#f0f0f0" stroke="#555" strokeWidth="1.5"/>
-      {/* Para-brisas dianteiro */}
-      <rect x="38" y="83" width="84" height="38" rx="3" fill="#b8d4f0" stroke="#555" strokeWidth="1"/>
-      {/* Cabine / teto */}
-      <rect x="28" y="121" width="104" height="78" rx="4" fill="#e0e0e0" stroke="#555" strokeWidth="1.5"/>
-      {/* Linha divisória portas */}
-      <line x1="28" y1="160" x2="132" y2="160" stroke="#aaa" strokeWidth="0.8"/>
-      {/* Maçanetas */}
-      <rect x="30" y="148" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="123" y="148" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="30" y="168" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="123" y="168" width="7" height="3" rx="1" fill="#999"/>
-      {/* Para-brisas traseiro */}
-      <rect x="38" y="199" width="84" height="34" rx="3" fill="#b8d4f0" stroke="#555" strokeWidth="1"/>
-      {/* Tampa do porta-malas */}
-      <rect x="28" y="233" width="104" height="50" rx="14" fill="#f0f0f0" stroke="#555" strokeWidth="1.5"/>
-      {/* Bumper traseiro */}
-      <rect x="35" y="283" width="90" height="7" rx="3" fill="#ccc" stroke="#555" strokeWidth="1"/>
-      {/* Traseira label */}
-      <text x="80" y="300" textAnchor="middle" fontSize="8" fill="#666" fontFamily="Arial">TRASEIRA</text>
-      {/* Rodas dianteiras */}
-      <rect x="8" y="38" width="18" height="40" rx="5" fill="#333"/>
-      <rect x="134" y="38" width="18" height="40" rx="5" fill="#333"/>
-      {/* Rodas traseiras */}
-      <rect x="8" y="242" width="18" height="40" rx="5" fill="#333"/>
-      <rect x="134" y="242" width="18" height="40" rx="5" fill="#333"/>
-
-      {/* Pontos de dano */}
-      {points.map((p, i) => (
-        <g key={p.id} onClick={(e) => removePoint(p.id, e)} style={{ cursor: readonly ? 'default' : 'pointer' }}>
-          <circle cx={p.x} cy={p.y} r="7" fill="#ef4444" fillOpacity="0.85" stroke="white" strokeWidth="1.5"/>
-          <text x={p.x} y={p.y + 3.5} textAnchor="middle" fontSize="7" fill="white" fontWeight="bold" fontFamily="Arial">
-            {i + 1}
-          </text>
-        </g>
-      ))}
-    </svg>
+    <div className="flex flex-col gap-3 w-full">
+      <div>
+        <p className="text-[10px] text-muted-foreground text-center mb-1 font-medium">Vista Superior</p>
+        <svg viewBox="0 0 160 300" style={{ display: 'block', width: '100%', maxWidth: '120px', margin: '0 auto' }}>
+          <text x="80" y="10" textAnchor="middle" fontSize="7" fill="#888" fontFamily="Arial">FRENTE</text>
+          <rect x="35" y="14" width="90" height="7" rx="3" fill="#ccc" stroke="#555" strokeWidth="1"/>
+          <rect x="28" y="21" width="104" height="62" rx="12" fill="#f0f0f0" stroke="#555" strokeWidth="1.5"/>
+          <rect x="38" y="83" width="84" height="38" rx="3" fill="#b8d4f0" stroke="#555" strokeWidth="1"/>
+          <rect x="28" y="121" width="104" height="78" rx="4" fill="#e0e0e0" stroke="#555" strokeWidth="1.5"/>
+          <line x1="28" y1="160" x2="132" y2="160" stroke="#aaa" strokeWidth="0.8"/>
+          <rect x="38" y="199" width="84" height="34" rx="3" fill="#b8d4f0" stroke="#555" strokeWidth="1"/>
+          <rect x="28" y="233" width="104" height="50" rx="12" fill="#f0f0f0" stroke="#555" strokeWidth="1.5"/>
+          <rect x="35" y="283" width="90" height="7" rx="3" fill="#ccc" stroke="#555" strokeWidth="1"/>
+          <text x="80" y="298" textAnchor="middle" fontSize="7" fill="#888" fontFamily="Arial">TRASEIRA</text>
+          <rect x="8" y="36" width="18" height="42" rx="5" fill="#333"/>
+          <rect x="134" y="36" width="18" height="42" rx="5" fill="#333"/>
+          <rect x="8" y="240" width="18" height="42" rx="5" fill="#333"/>
+          <rect x="134" y="240" width="18" height="42" rx="5" fill="#333"/>
+          {TOP_SPOTS.map(dot)}
+        </svg>
+      </div>
+      <div>
+        <p className="text-[10px] text-muted-foreground text-center mb-1 font-medium">Vista Lateral</p>
+        <svg viewBox="0 0 290 90" style={{ display: 'block', width: '100%' }}>
+          <path d="M 22 76 L 22 60 Q 23 52 36 52 L 90 52 L 102 22 L 182 22 L 200 38 L 240 48 L 260 54 L 264 68 L 264 76 Z" fill="#e8e8e8" stroke="#555" strokeWidth="1.5"/>
+          <circle cx="68" cy="76" r="19" fill="white"/>
+          <circle cx="212" cy="76" r="19" fill="white"/>
+          <path d="M 48 76 Q 48 52 68 52 Q 88 52 88 76" fill="none" stroke="#555" strokeWidth="1.5"/>
+          <path d="M 192 76 Q 192 52 212 52 Q 232 52 232 76" fill="none" stroke="#555" strokeWidth="1.5"/>
+          <path d="M 90 52 L 102 22 L 124 22 L 124 52 Z" fill="#b8d4f0" stroke="#555" strokeWidth="0.8"/>
+          <path d="M 165 22 L 182 22 L 200 38 L 165 52 Z" fill="#b8d4f0" stroke="#555" strokeWidth="0.8"/>
+          <rect x="124" y="20" width="41" height="30" fill="#d8d8d8" stroke="none"/>
+          <line x1="144" y1="36" x2="144" y2="72" stroke="#888" strokeWidth="0.8"/>
+          <circle cx="68" cy="76" r="14" fill="#444" stroke="#333" strokeWidth="0.8"/>
+          <circle cx="68" cy="76" r="6" fill="#888"/>
+          <circle cx="212" cy="76" r="14" fill="#444" stroke="#333" strokeWidth="0.8"/>
+          <circle cx="212" cy="76" r="6" fill="#888"/>
+          <rect x="16" y="59" width="6" height="17" rx="2" fill="#ccc" stroke="#888" strokeWidth="0.8"/>
+          <rect x="268" y="57" width="6" height="19" rx="2" fill="#ccc" stroke="#888" strokeWidth="0.8"/>
+          {SIDE_SPOTS.map(dot)}
+        </svg>
+      </div>
+    </div>
   )
 }
 
@@ -395,7 +420,7 @@ function OrderDetailModal({
   const [editNotes, setEditNotes] = useState('')
   const [savingOS, setSavingOS] = useState(false)
   const [changingStatus, setChangingStatus] = useState(false)
-  const [damagePoints, setDamagePoints] = useState<DamagePoint[]>([])
+  const [activeSpots, setActiveSpots] = useState<string[]>([])
   const [savingDamage, setSavingDamage] = useState(false)
   const [damageEditing, setDamageEditing] = useState(false)
 
@@ -406,9 +431,17 @@ function OrderDetailModal({
 
   useEffect(() => {
     if (order?.damageMap) {
-      try { setDamagePoints(JSON.parse(order.damageMap)) } catch { setDamagePoints([]) }
+      try {
+        const parsed = JSON.parse(order.damageMap)
+        // New format: string[] of spot IDs
+        if (Array.isArray(parsed) && (parsed.length === 0 || typeof parsed[0] === 'string')) {
+          setActiveSpots(parsed)
+        } else {
+          setActiveSpots([]) // old format (array of {id,x,y}) — reset
+        }
+      } catch { setActiveSpots([]) }
     } else {
-      setDamagePoints([])
+      setActiveSpots([])
     }
   }, [order?.damageMap])
 
@@ -479,7 +512,7 @@ function OrderDetailModal({
   const saveDamage = async () => {
     setSavingDamage(true)
     try {
-      await api.patch(`/service-orders/${orderId}`, { damageMap: JSON.stringify(damagePoints) })
+      await api.patch(`/service-orders/${orderId}`, { damageMap: JSON.stringify(activeSpots) })
       qc.invalidateQueries({ queryKey: ['service-order-detail', orderId] })
       setDamageEditing(false)
     } finally {
@@ -496,33 +529,52 @@ function OrderDetailModal({
   const handlePrint = () => {
     if (!order) return
     const o = order
-    const pts: DamagePoint[] = damagePoints
     const checklist = o.checklist ? JSON.parse(o.checklist) : {}
 
-    const carSvg = `<svg viewBox="0 0 160 320" width="110" height="220" style="display:block;margin:0 auto">
-      <text x="80" y="12" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">FRENTE</text>
-      <rect x="35" y="16" width="90" height="7" rx="3" fill="#ccc" stroke="#555" stroke-width="1"/>
-      <rect x="28" y="23" width="104" height="60" rx="14" fill="#f0f0f0" stroke="#555" stroke-width="1.5"/>
-      <rect x="38" y="83" width="84" height="38" rx="3" fill="#b8d4f0" stroke="#555" stroke-width="1"/>
-      <rect x="28" y="121" width="104" height="78" rx="4" fill="#e0e0e0" stroke="#555" stroke-width="1.5"/>
-      <line x1="28" y1="160" x2="132" y2="160" stroke="#aaa" stroke-width="0.8"/>
-      <rect x="30" y="148" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="123" y="148" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="30" y="168" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="123" y="168" width="7" height="3" rx="1" fill="#999"/>
-      <rect x="38" y="199" width="84" height="34" rx="3" fill="#b8d4f0" stroke="#555" stroke-width="1"/>
-      <rect x="28" y="233" width="104" height="50" rx="14" fill="#f0f0f0" stroke="#555" stroke-width="1.5"/>
-      <rect x="35" y="283" width="90" height="7" rx="3" fill="#ccc" stroke="#555" stroke-width="1"/>
-      <text x="80" y="300" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">TRASEIRA</text>
-      <rect x="8" y="38" width="18" height="40" rx="5" fill="#333"/>
-      <rect x="134" y="38" width="18" height="40" rx="5" fill="#333"/>
-      <rect x="8" y="242" width="18" height="40" rx="5" fill="#333"/>
-      <rect x="134" y="242" width="18" height="40" rx="5" fill="#333"/>
-      ${pts.map((p, i) => `
-        <circle cx="${p.x}" cy="${p.y}" r="7" fill="#ef4444" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
-        <text x="${p.x}" y="${p.y + 3.5}" text-anchor="middle" font-size="7" fill="white" font-weight="bold" font-family="Arial">${i + 1}</text>
-      `).join('')}
-    </svg>`
+    // Helper: render a damage spot as SVG circle (hollow or filled black)
+    const spotCircle = (spot: DamageSpot) => {
+      const active = activeSpots.includes(spot.id)
+      return `<circle cx="${spot.x}" cy="${spot.y}" r="5" fill="${active ? '#111' : 'white'}" stroke="${active ? '#111' : '#666'}" stroke-width="1.2"/>`
+    }
+
+    const topViewSvg = `
+      <svg viewBox="0 0 160 300" width="90" height="168" style="display:block;margin:0 auto">
+        <text x="80" y="10" text-anchor="middle" font-size="7" fill="#888" font-family="Arial">FRENTE</text>
+        <rect x="35" y="14" width="90" height="7" rx="3" fill="#ccc" stroke="#555" stroke-width="1"/>
+        <rect x="28" y="21" width="104" height="62" rx="12" fill="#f0f0f0" stroke="#555" stroke-width="1.5"/>
+        <rect x="38" y="83" width="84" height="38" rx="3" fill="#b8d4f0" stroke="#555" stroke-width="1"/>
+        <rect x="28" y="121" width="104" height="78" rx="4" fill="#e0e0e0" stroke="#555" stroke-width="1.5"/>
+        <line x1="28" y1="160" x2="132" y2="160" stroke="#aaa" stroke-width="0.8"/>
+        <rect x="38" y="199" width="84" height="34" rx="3" fill="#b8d4f0" stroke="#555" stroke-width="1"/>
+        <rect x="28" y="233" width="104" height="50" rx="12" fill="#f0f0f0" stroke="#555" stroke-width="1.5"/>
+        <rect x="35" y="283" width="90" height="7" rx="3" fill="#ccc" stroke="#555" stroke-width="1"/>
+        <text x="80" y="298" text-anchor="middle" font-size="7" fill="#888" font-family="Arial">TRASEIRA</text>
+        <rect x="8" y="36" width="18" height="42" rx="5" fill="#333"/>
+        <rect x="134" y="36" width="18" height="42" rx="5" fill="#333"/>
+        <rect x="8" y="240" width="18" height="42" rx="5" fill="#333"/>
+        <rect x="134" y="240" width="18" height="42" rx="5" fill="#333"/>
+        ${TOP_SPOTS.map(spotCircle).join('')}
+      </svg>`
+
+    const sideViewSvg = `
+      <svg viewBox="0 0 290 90" width="200" height="62" style="display:block;margin:4px auto 0">
+        <path d="M 22 76 L 22 60 Q 23 52 36 52 L 90 52 L 102 22 L 182 22 L 200 38 L 240 48 L 260 54 L 264 68 L 264 76 Z" fill="#e8e8e8" stroke="#555" stroke-width="1.5"/>
+        <circle cx="68" cy="76" r="19" fill="white"/>
+        <circle cx="212" cy="76" r="19" fill="white"/>
+        <path d="M 48 76 Q 48 52 68 52 Q 88 52 88 76" fill="none" stroke="#555" stroke-width="1.5"/>
+        <path d="M 192 76 Q 192 52 212 52 Q 232 52 232 76" fill="none" stroke="#555" stroke-width="1.5"/>
+        <path d="M 90 52 L 102 22 L 124 22 L 124 52 Z" fill="#b8d4f0" stroke="#555" stroke-width="0.8"/>
+        <path d="M 165 22 L 182 22 L 200 38 L 165 52 Z" fill="#b8d4f0" stroke="#555" stroke-width="0.8"/>
+        <rect x="124" y="20" width="41" height="30" fill="#d8d8d8"/>
+        <line x1="144" y1="36" x2="144" y2="72" stroke="#888" stroke-width="0.8"/>
+        <circle cx="68" cy="76" r="14" fill="#444" stroke="#333" stroke-width="0.8"/>
+        <circle cx="68" cy="76" r="6" fill="#888"/>
+        <circle cx="212" cy="76" r="14" fill="#444" stroke="#333" stroke-width="0.8"/>
+        <circle cx="212" cy="76" r="6" fill="#888"/>
+        <rect x="16" y="59" width="6" height="17" rx="2" fill="#ccc" stroke="#888" stroke-width="0.8"/>
+        <rect x="268" y="57" width="6" height="19" rx="2" fill="#ccc" stroke="#888" stroke-width="0.8"/>
+        ${SIDE_SPOTS.map(spotCircle).join('')}
+      </svg>`
 
     // Serviços: da quote ou notes como fallback
     const quoteItems = o.quote?.items ?? []
@@ -558,9 +610,7 @@ function OrderDetailModal({
     const timeStr = new Date(o.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     const osNum = String(o.number).padStart(5, '0')
 
-    const win = window.open('', '_blank', 'width=900,height=750')
-    if (!win) return
-    win.document.write(`<!DOCTYPE html>
+    const printHtml = `<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
 <title>OS ${osNum} — ${o.client?.name}</title>
@@ -705,8 +755,11 @@ function OrderDetailModal({
     </div>
     <div class="cl-right">
       <div class="map-title">Mapa de Danos</div>
-      ${carSvg}
-      <div class="obs-label" style="margin-top:6px">Observações:</div>
+      <div style="font-size:8px;color:#888;text-align:center;margin-bottom:3px">Vista Superior</div>
+      ${topViewSvg}
+      <div style="font-size:8px;color:#888;text-align:center;margin:6px 0 3px">Vista Lateral</div>
+      ${sideViewSvg}
+      <div class="obs-label" style="margin-top:8px">Observações:</div>
       <div class="obs-box"></div>
     </div>
   </div>
@@ -757,9 +810,19 @@ function OrderDetailModal({
   </div>
 
 </div>
-</body></html>`)
-    win.document.close()
-    win.print()
+</body></html>`
+
+    // Usar iframe para evitar bloqueio de popup
+    const iframe = document.createElement('iframe')
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;border:none'
+    document.body.appendChild(iframe)
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!iframeDoc) { document.body.removeChild(iframe); return }
+    iframeDoc.open(); iframeDoc.write(printHtml); iframeDoc.close()
+    setTimeout(() => {
+      iframe.contentWindow?.print()
+      setTimeout(() => { try { document.body.removeChild(iframe) } catch {} }, 2000)
+    }, 300)
   }
 
   const checklist = order?.checklist ? JSON.parse(order.checklist) : {}
@@ -1090,11 +1153,17 @@ function OrderDetailModal({
               {/* Mapa de Danos */}
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Mapa de danos</h3>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Mapa de danos</h3>
+                    <p className="text-xs text-muted-foreground">Clique nas bolinhas para marcar avarias</p>
+                  </div>
                   {damageEditing ? (
                     <div className="flex gap-2">
-                      <button onClick={() => { setDamageEditing(false); try { setDamagePoints(order.damageMap ? JSON.parse(order.damageMap) : []) } catch { setDamagePoints([]) } }} className="rounded-lg border px-3 py-1 text-xs hover:bg-muted">Cancelar</button>
-                      <button onClick={() => setDamagePoints([])} className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50">Limpar</button>
+                      <button
+                        onClick={() => { setDamageEditing(false); setActiveSpots(order.damageMap ? (() => { try { const p = JSON.parse(order.damageMap); return Array.isArray(p) && (p.length === 0 || typeof p[0] === 'string') ? p : [] } catch { return [] } })() : []) }}
+                        className="rounded-lg border px-3 py-1 text-xs hover:bg-muted"
+                      >Cancelar</button>
+                      <button onClick={() => setActiveSpots([])} className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50">Limpar</button>
                       <button onClick={saveDamage} disabled={savingDamage} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60">
                         <Save className="h-3 w-3" />
                         {savingDamage ? 'Salvando...' : 'Salvar'}
@@ -1102,45 +1171,35 @@ function OrderDetailModal({
                     </div>
                   ) : (
                     <button onClick={() => setDamageEditing(true)} className="rounded-lg border px-3 py-1 text-xs hover:bg-muted">
-                      {damagePoints.length > 0 ? 'Editar' : 'Marcar danos'}
+                      {activeSpots.length > 0 ? 'Editar' : 'Marcar danos'}
                     </button>
                   )}
                 </div>
-                <div className="flex gap-4 rounded-xl border p-4">
-                  <div className="flex-shrink-0">
-                    <VehicleDamageMap
-                      points={damagePoints}
-                      onChange={damageEditing ? setDamagePoints : undefined}
-                      readonly={!damageEditing}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {damageEditing && (
-                      <p className="mb-3 text-xs text-muted-foreground bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                        Clique no veículo para marcar um ponto de dano. Clique em um ponto existente para removê-lo.
-                      </p>
-                    )}
-                    {damagePoints.length > 0 ? (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Pontos marcados:</p>
-                        {damagePoints.map((p, i) => (
-                          <div key={p.id} className="flex items-center gap-2 text-xs">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white font-bold text-[10px]">{i + 1}</span>
-                            <span className="text-muted-foreground">x:{Math.round(p.x)}, y:{Math.round(p.y)}</span>
-                          </div>
-                        ))}
+                <div className="rounded-xl border p-4">
+                  <VehicleDamageMap
+                    activeSpots={activeSpots}
+                    onChange={damageEditing ? setActiveSpots : undefined}
+                    readonly={!damageEditing}
+                  />
+                  {activeSpots.length > 0 && (
+                    <div className="mt-3 border-t pt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Avarias marcadas ({activeSpots.length}):</p>
+                      <div className="flex flex-wrap gap-1">
+                        {activeSpots.map((id) => {
+                          const spot = [...TOP_SPOTS, ...SIDE_SPOTS].find((s) => s.id === id)
+                          return spot ? (
+                            <span key={id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground">{spot.label}</span>
+                          ) : null
+                        })}
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Nenhum dano marcado.</p>
-                    )}
-                    {/* KM entrada */}
-                    {order.kmEntry && (
-                      <div className="mt-4 rounded-lg bg-muted/40 p-2">
-                        <p className="text-xs text-muted-foreground">KM na entrada</p>
-                        <p className="font-semibold">{order.kmEntry.toLocaleString('pt-BR')} km</p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  {order.kmEntry && (
+                    <div className="mt-3 rounded-lg bg-muted/40 p-2">
+                      <p className="text-xs text-muted-foreground">KM na entrada</p>
+                      <p className="font-semibold">{order.kmEntry.toLocaleString('pt-BR')} km</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

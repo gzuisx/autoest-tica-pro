@@ -84,3 +84,26 @@ tenantRouter.post('/users', requireRole('admin'), async (req, res) => {
     res.status(409).json({ error: 'E-mail já cadastrado nesta estética' });
   }
 });
+
+// DELETE /api/tenant/users/:id
+tenantRouter.delete('/users/:id', requireRole('admin'), async (req, res) => {
+  const targetId = String(req.params.id);
+  const requesterId = req.user!.id;
+
+  if (targetId === requesterId) {
+    res.status(400).json({ error: 'Você não pode excluir sua própria conta.' });
+    return;
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id: targetId, tenantId: req.user!.tenantId },
+  });
+
+  if (!target) {
+    res.status(404).json({ error: 'Usuário não encontrado.' });
+    return;
+  }
+
+  await prisma.user.delete({ where: { id: targetId } });
+  res.status(204).send();
+});
