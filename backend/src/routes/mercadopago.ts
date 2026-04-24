@@ -192,6 +192,79 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
   }
 });
 
+// ─── GET /api/mercadopago/payment-return — retorno do MP após pagamento da landing ──
+// MP redireciona aqui com ?payment_id=...&status=approved&external_reference=...
+// Backend verifica o pagamento, gera token e redireciona para /register?token=...
+mercadopagoRouter.get('/payment-return', async (req: Request, res: Response): Promise<void> => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
+  const landingUrl  = process.env.LANDING_URL  || 'https://autoest-tica-pro-landing.vercel.app';
+
+  const { payment_id, status, external_reference } = req.query as Record<string, string>;
+
+  if (status !== 'approved' || !payment_id || !external_reference) {
+    res.redirect(`${landingUrl}?payment=failure`);
+    return;
+  }
+
+  const parts = external_reference.split('|');
+  if (parts[0] !== 'landing' || parts.length < 3) {
+    res.redirect(`${frontendUrl}/register?payment=success`);
+    return;
+  }
+
+  const plan  = parts[1] as 'basic' | 'pro';
+  const email = parts[2];
+
+  if (!email || email === 'unknown' || !['basic', 'pro'].includes(plan)) {
+    res.redirect(`${frontendUrl}/register?payment=success&plan=${plan}`);
+    return;
+  }
+
+  try {
+    // Verifica se webhook já criou token para este email (idempotência)
+    const existing = await prisma.registrationToken.findFirst({
+      where: { email, plan, used: false, expiresAt: { gt: new Date() } },
+    });
+
+    let token: string;
+
+    if (existing) {
+      token = existing.token;
+      console.log(`[payment-return] Token existente reutilizado: email=${email}`);
+    } else {
+      // Verifica pagamento diretamente com a API do MP
+      const { MercadoPagoConfig: MPConfig, Payment } = await import('mercadopago');
+      const mpInst = new MPConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
+      const paymentClient = new Payment(mpInst);
+      const payment = await paymentClient.get({ id: Number(payment_id) });
+
+      if (payment.status !== 'approved') {
+        res.redirect(`${landingUrl}?payment=failure`);
+        return;
+      }
+
+      token = generateActivationCode();
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+
+      await prisma.registrationToken.create({
+        data: { token, plan, email, expiresAt },
+      });
+
+      const registerUrl = `${frontendUrl}/register?token=${token}`;
+      sendRegistrationLinkEmail({ to: email, plan, activationCode: token, registerUrl })
+        .catch(err => console.error('[payment-return] Falha ao enviar email:', err?.message));
+
+      console.log(`[payment-return] Token gerado: plano=${plan} email=${email}`);
+    }
+
+    // Redireciona direto para o cadastro com o token — sem precisar esperar e-mail
+    res.redirect(`${frontendUrl}/register?token=${token}`);
+  } catch (err: any) {
+    console.error('[payment-return] Erro:', err?.message);
+    res.redirect(`${frontendUrl}/register?payment=success&plan=${plan}`);
+  }
+});
+
 // ─── POST /api/mercadopago/landing-preference — rota pública (landing page) ───
 mercadopagoRouter.post('/landing-preference', landingLimiter, async (req: Request, res: Response): Promise<void> => {
   const { plan, email, name } = req.body as { plan: 'basic' | 'pro'; email?: string; name?: string };
@@ -222,7 +295,7 @@ mercadopagoRouter.post('/landing-preference', landingLimiter, async (req: Reques
           name: name || undefined,
         },
         back_urls: {
-          success: `${frontendUrl}/register?payment=success&plan=${plan}`,
+          success: `${process.env.BACKEND_URL || 'https://autoest-tica-pro-production.up.railway.app'}/api/mercadopago/payment-return`,
           failure: `${landingUrl}?payment=failure`,
           pending: `${landingUrl}?payment=pending`,
         },
