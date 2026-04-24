@@ -193,35 +193,45 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
 });
 
 // ─── GET /api/mercadopago/payment-return — retorno do MP após pagamento da landing ──
-// MP redireciona aqui com ?payment_id=...&status=approved&external_reference=...
+// MP redireciona aqui com query params (payment_id/collection_id, status/collection_status, external_reference)
 // Backend verifica o pagamento, gera token e redireciona para /register?token=...
 mercadopagoRouter.get('/payment-return', async (req: Request, res: Response): Promise<void> => {
   const frontendUrl = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
   const landingUrl  = process.env.LANDING_URL  || 'https://autoest-tica-pro-landing.vercel.app';
 
-  const { payment_id, status, external_reference } = req.query as Record<string, string>;
-
-  if (status !== 'approved' || !payment_id || !external_reference) {
-    res.redirect(`${landingUrl}?payment=failure`);
-    return;
-  }
-
-  const parts = external_reference.split('|');
-  if (parts[0] !== 'landing' || parts.length < 3) {
-    res.redirect(`${frontendUrl}/register?payment=success`);
-    return;
-  }
-
-  const plan  = parts[1] as 'basic' | 'pro';
-  const email = parts[2];
-
-  if (!email || email === 'unknown' || !['basic', 'pro'].includes(plan)) {
-    res.redirect(`${frontendUrl}/register?payment=success&plan=${plan}`);
-    return;
-  }
-
+  // Tudo dentro de try para garantir que qualquer erro vira redirect, nunca JSON 500
   try {
-    // Verifica se webhook já criou token para este email (idempotência)
+    const q = req.query as Record<string, string>;
+    console.log('[payment-return] Params recebidos:', JSON.stringify(q));
+
+    // MP envia tanto payment_id/status quanto collection_id/collection_status
+    const paymentId    = q.payment_id    || q.collection_id;
+    const status       = q.status        || q.collection_status;
+    const externalRef  = q.external_reference;
+
+    if (status !== 'approved' || !paymentId || !externalRef) {
+      console.log(`[payment-return] Pagamento não aprovado ou params ausentes: status=${status}`);
+      res.redirect(`${landingUrl}?payment=failure`);
+      return;
+    }
+
+    const parts = externalRef.split('|');
+    if (parts[0] !== 'landing' || parts.length < 3) {
+      // Pode ser pagamento do app — redireciona para o app sem token
+      res.redirect(`${frontendUrl}/register?payment=success`);
+      return;
+    }
+
+    const plan  = parts[1] as 'basic' | 'pro';
+    const email = parts[2];
+
+    if (!email || email === 'unknown' || !['basic', 'pro'].includes(plan)) {
+      console.warn(`[payment-return] email inválido na referência: ${externalRef}`);
+      res.redirect(`${frontendUrl}/register?payment=success&plan=${plan}`);
+      return;
+    }
+
+    // Verifica se webhook já criou token (idempotência)
     const existing = await prisma.registrationToken.findFirst({
       where: { email, plan, used: false, expiresAt: { gt: new Date() } },
     });
@@ -232,13 +242,14 @@ mercadopagoRouter.get('/payment-return', async (req: Request, res: Response): Pr
       token = existing.token;
       console.log(`[payment-return] Token existente reutilizado: email=${email}`);
     } else {
-      // Verifica pagamento diretamente com a API do MP
+      // Verifica o pagamento diretamente na API do MP
       const { MercadoPagoConfig: MPConfig, Payment } = await import('mercadopago');
       const mpInst = new MPConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
       const paymentClient = new Payment(mpInst);
-      const payment = await paymentClient.get({ id: Number(payment_id) });
+      const payment = await paymentClient.get({ id: Number(paymentId) });
 
       if (payment.status !== 'approved') {
+        console.log(`[payment-return] Pagamento não aprovado na API: ${payment.status}`);
         res.redirect(`${landingUrl}?payment=failure`);
         return;
       }
@@ -252,16 +263,17 @@ mercadopagoRouter.get('/payment-return', async (req: Request, res: Response): Pr
 
       const registerUrl = `${frontendUrl}/register?token=${token}`;
       sendRegistrationLinkEmail({ to: email, plan, activationCode: token, registerUrl })
-        .catch(err => console.error('[payment-return] Falha ao enviar email:', err?.message));
+        .catch(e => console.error('[payment-return] Falha ao enviar email:', e?.message));
 
-      console.log(`[payment-return] Token gerado: plano=${plan} email=${email}`);
+      console.log(`[payment-return] Token gerado com sucesso: plano=${plan} email=${email}`);
     }
 
-    // Redireciona direto para o cadastro com o token — sem precisar esperar e-mail
     res.redirect(`${frontendUrl}/register?token=${token}`);
+
   } catch (err: any) {
-    console.error('[payment-return] Erro:', err?.message);
-    res.redirect(`${frontendUrl}/register?payment=success&plan=${plan}`);
+    console.error('[payment-return] Erro não capturado:', err?.message);
+    const frontendFallback = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
+    res.redirect(`${frontendFallback}/register?payment=success`);
   }
 });
 
