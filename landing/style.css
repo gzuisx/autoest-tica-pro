@@ -1113,6 +1113,7 @@ ul { list-style: none; }
 
 @media (max-width: 600px) {
   .trust-grid { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ─── Checkout Modal ─────────────────────────────────────────────────────────── */
 
@@ -1248,5 +1249,4 @@ ul { list-style: none; }
   font-size: 12px;
   color: var(--text-dim);
   margin-top: 14px;
-}
 }
