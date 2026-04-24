@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma';
@@ -7,6 +7,12 @@ import { authenticate } from '../middleware/auth';
 import { sendRegistrationLinkEmail } from '../utils/email';
 
 export const mercadopagoRouter = Router();
+
+/** Gera código de ativação curto e legível (ex: XKAP92BM) */
+function generateActivationCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0, 1 para evitar confusão
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
 const mp = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -157,7 +163,7 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
         return;
       }
 
-      const token = randomBytes(32).toString('hex');
+      const token = generateActivationCode();
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
 
       await prisma.registrationToken.create({
@@ -167,7 +173,7 @@ mercadopagoRouter.post('/webhook', async (req: Request, res: Response): Promise<
       const frontendUrl = process.env.FRONTEND_URL || 'https://autoest-tica-pro.vercel.app';
       const registerUrl = `${frontendUrl}/register?token=${token}`;
 
-      await sendRegistrationLinkEmail({ to: email, plan, registerUrl });
+      await sendRegistrationLinkEmail({ to: email, plan, activationCode: token, registerUrl });
 
       console.log(`[MP Webhook] Token de cadastro gerado e email enviado: plano=${plan} email=${email}`);
       return;

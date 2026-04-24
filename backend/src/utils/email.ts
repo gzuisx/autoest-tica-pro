@@ -44,13 +44,19 @@ async function send(to: string, subject: string, html: string): Promise<void> {
     console.log(`\n[DEV EMAIL] ─────────────────────`);
     console.log(`  Para: ${to}`);
     console.log(`  Assunto: ${subject}`);
-    const code = html.match(/letter-spacing:8px[^>]*>(\d{6})</)?.[1];
-    const link = html.match(/href="(https?:\/\/[^"]+reset[^"]+)"/)?.[1];
+    const code = html.match(/letter-spacing:8px[^>]*>([A-Z0-9]{6,8})</)?.[1];
+    const link = html.match(/href="(https?:\/\/[^"]+(?:reset|register)[^"]+)"/)?.[1];
     if (code) console.log(`  Código: ${code}`);
     if (link) console.log(`  Link: ${link}`);
     console.log(`──────────────────────────────────\n`);
     return;
   }
+
+  if (!process.env.SMTP_HOST || !process.env.SMTP_PASS) {
+    console.warn(`[EMAIL] SMTP não configurado — e-mail não enviado para ${to} (${subject})`);
+    return;
+  }
+
   const transporter = createTransporter();
   if (!transporter) return;
   await transporter.sendMail({
@@ -166,7 +172,8 @@ export async function sendWelcomeEmail(opts: SendWelcomeOptions): Promise<void> 
 interface SendRegistrationLinkOptions {
   to: string;
   plan: 'basic' | 'pro';
-  registerUrl: string; // URL com ?token=...
+  activationCode: string; // código curto legível (ex: XKAP92BM)
+  registerUrl: string;    // URL com ?token=... (para o botão do e-mail)
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -180,8 +187,13 @@ export async function sendRegistrationLinkEmail(opts: SendRegistrationLinkOption
     <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Pagamento confirmado! Crie sua conta</h2>
     <p style="margin:0 0 20px;color:#6b7280;font-size:15px;">
       Seu pagamento do <strong>Plano ${planLabel}</strong> foi aprovado.
-      Clique no botão abaixo para criar sua conta e começar a usar o AutoEstética Pro agora mesmo.
+      Use o código abaixo para criar sua conta no AutoEstética Pro.
     </p>
+    <div style="background:#f0f0ff;border:2px dashed #6366f1;border-radius:10px;padding:28px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6366f1;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Seu código de ativação</p>
+      <span style="font-size:36px;font-weight:800;color:#4f46e5;letter-spacing:8px;font-family:monospace;">${opts.activationCode}</span>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Digite este código na tela de cadastro</p>
+    </div>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:24px;">
       <p style="margin:0 0 6px;font-size:14px;color:#15803d;font-weight:700;">Seu plano inclui:</p>
       ${opts.plan === 'pro' ? `
@@ -204,7 +216,7 @@ export async function sendRegistrationLinkEmail(opts: SendRegistrationLinkOption
       </a>
     </div>
     <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">
-      &#9679; Este link é <strong>de uso único</strong> e expira em <strong>48 horas</strong>.
+      &#9679; O código e o link são <strong>de uso único</strong> e expiram em <strong>48 horas</strong>.
     </p>
     <p style="margin:0 0 16px;font-size:14px;color:#6b7280;">
       &#9679; Se você não realizou este pagamento, entre em contato conosco.

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Car, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { Car, CheckCircle, Loader2, AlertCircle, KeyRound } from 'lucide-react'
 import api from '../services/api'
 
 interface RegisterForm {
@@ -11,6 +11,7 @@ interface RegisterForm {
   email: string
   password: string
   phone: string
+  activationCode: string
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -22,35 +23,36 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  // Parâmetros de retorno do MP (sem token)
+  // Parâmetros de retorno do MP (sem token ainda)
   const paymentSuccess = searchParams.get('payment') === 'success'
   const paidPlan = searchParams.get('plan') || ''
 
-  // Token de cadastro pós-pagamento (vindo do email)
-  const registrationToken = searchParams.get('token') || ''
+  // Token/código de cadastro pós-pagamento (vindo da URL do e-mail ou digitado)
+  const tokenFromUrl = searchParams.get('token') || ''
 
   const [tokenStatus, setTokenStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
   const [tokenPlan, setTokenPlan] = useState('')
-  const [tokenEmail, setTokenEmail] = useState('')
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegisterForm>()
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegisterForm>({
+    defaultValues: { activationCode: tokenFromUrl },
+  })
 
-  // Valida token ao carregar a página
+  // Valida token da URL ao carregar a página
   useEffect(() => {
-    if (!registrationToken) return
+    if (!tokenFromUrl) return
     setTokenStatus('loading')
-    api.get(`/auth/registration-token?token=${registrationToken}`)
+    api.get(`/auth/registration-token?token=${tokenFromUrl}`)
       .then(({ data }) => {
         setTokenStatus('valid')
         setTokenPlan(data.plan)
-        setTokenEmail(data.email)
         setValue('email', data.email)
+        setValue('activationCode', tokenFromUrl)
       })
       .catch(() => setTokenStatus('invalid'))
-  }, [registrationToken])
+  }, [tokenFromUrl])
 
   function generateSlug(name: string) {
     return name
@@ -67,8 +69,10 @@ export default function RegisterPage() {
     try {
       setLoading(true)
       setError('')
-      const payload: any = { ...data }
-      if (registrationToken) payload.registrationToken = registrationToken
+      const { activationCode, ...rest } = data
+      const payload: any = { ...rest }
+      const code = activationCode?.trim().toUpperCase()
+      if (code) payload.registrationToken = code
       const { data: result } = await api.post('/auth/register', payload)
       if (result.pendingVerification) {
         navigate(`/verify-email?email=${encodeURIComponent(result.email)}`)
@@ -81,6 +85,8 @@ export default function RegisterPage() {
       setLoading(false)
     }
   }
+
+  const activationCodeValue = watch('activationCode')
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4 py-8">
@@ -95,11 +101,11 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Banner: token de pagamento válido */}
+        {/* Banner: validando token da URL */}
         {tokenStatus === 'loading' && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-600" />
-            <p className="text-sm text-blue-700">Validando seu pagamento...</p>
+            <p className="text-sm text-blue-700">Validando seu código de ativação...</p>
           </div>
         )}
         {tokenStatus === 'valid' && (
@@ -117,21 +123,21 @@ export default function RegisterPage() {
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
             <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-800">Link inválido ou expirado</p>
-              <p className="text-sm text-red-700">Este link de cadastro não é mais válido. Entre em contato com o suporte.</p>
+              <p className="font-semibold text-red-800">Código inválido ou expirado</p>
+              <p className="text-sm text-red-700">Este código de ativação não é mais válido. Entre em contato com o suporte.</p>
             </div>
           </div>
         )}
 
-        {/* Banner: retorno direto do MP sem token */}
-        {paymentSuccess && !registrationToken && (
+        {/* Banner: retorno direto do MP (aguardando e-mail com código) */}
+        {paymentSuccess && !tokenFromUrl && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-green-300 bg-green-50 p-4">
             <CheckCircle className="h-5 w-5 shrink-0 text-green-600 mt-0.5" />
             <div>
               <p className="font-semibold text-green-800">Pagamento aprovado!</p>
               <p className="text-sm text-green-700">
-                {paidPlan ? `Plano ${PLAN_LABELS[paidPlan] ?? paidPlan} ativo. ` : ''}
-                Agora crie sua conta para acessar o sistema.
+                {paidPlan ? `Plano ${PLAN_LABELS[paidPlan] ?? paidPlan}. ` : ''}
+                Você receberá um <strong>código de ativação por e-mail</strong> em instantes. Digite-o abaixo ao preencher o cadastro.
               </p>
             </div>
           </div>
@@ -191,7 +197,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="seu@email.com"
                 readOnly={tokenStatus === 'valid'}
-                className="w-full rounded-lg border border-input px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-muted"
+                className="w-full rounded-lg border border-input px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 read-only:bg-muted"
               />
               {tokenStatus === 'valid' && (
                 <p className="mt-1 text-xs text-muted-foreground">E-mail vinculado ao pagamento</p>
@@ -207,6 +213,32 @@ export default function RegisterPage() {
                 className="w-full rounded-lg border border-input px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               {errors.password && <p className="mt-1 text-xs text-destructive">{errors.password.message}</p>}
+            </div>
+
+            {/* Código de ativação — sempre visível, obrigatório apenas se há pagamento */}
+            <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-4">
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
+                <KeyRound className="h-4 w-4" />
+                Código de ativação
+              </label>
+              <input
+                {...register('activationCode')}
+                placeholder="Ex: XKAP92BM"
+                readOnly={tokenStatus === 'valid'}
+                onChange={(e) => {
+                  register('activationCode').onChange(e)
+                  setValue('activationCode', e.target.value.toUpperCase())
+                }}
+                className="mt-1 w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm font-mono tracking-widest outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 read-only:bg-muted uppercase"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {tokenStatus === 'valid'
+                  ? 'Código validado — plano pago será ativado'
+                  : paymentSuccess
+                  ? 'Aguarde o e-mail com seu código e digite-o aqui'
+                  : 'Recebeu um código por e-mail após o pagamento? Digite aqui para ativar seu plano.'
+                }
+              </p>
             </div>
 
             {error && (

@@ -160,7 +160,9 @@ authRouter.post('/register', async (req, res) => {
       });
     }
 
-    await sendVerificationEmail({ to: user.email, name: user.name, code });
+    // Dispara sem bloquear — falha de SMTP não deve impedir o cadastro
+    sendVerificationEmail({ to: user.email, name: user.name, code })
+      .catch(err => console.error('[Register] Falha ao enviar e-mail de verificação:', err?.message));
 
     res.status(201).json({
       message: 'Conta criada! Verifique seu e-mail para ativar o acesso.',
