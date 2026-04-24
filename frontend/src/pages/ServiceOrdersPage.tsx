@@ -613,199 +613,192 @@ function OrderDetailModal({
     const printHtml = `<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
-<title>OS ${osNum} — ${o.client?.name}</title>
+<title>OS ${osNum}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #111; background: #fff; }
-  .os-wrap { max-width: 780px; margin: 10px auto; border: 2px solid #222; }
+  .os-wrap { max-width: 780px; margin: 6px auto; border: 2px solid #333; }
+
+  /* ── CÉLULA PADRÃO (estilo CEABS: label pequeno + valor) ── */
+  .grid { border-top: 1px solid #333; border-left: 1px solid #333; }
+  .row { display: flex; }
+  .cell { border-right: 1px solid #333; border-bottom: 1px solid #333; flex: 1; min-width: 0; }
+  .cell.w2 { flex: 2; }
+  .cell.w3 { flex: 3; }
+  .cell.w4 { flex: 4; }
+  .lbl { font-size: 7.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #555; padding: 2px 5px 1px; background: #f2f2f2; border-bottom: 1px solid #d0d0d0; white-space: nowrap; overflow: hidden; }
+  .val { font-size: 11px; font-weight: 600; padding: 3px 5px 5px; min-height: 20px; }
+  .val.plate { font-size: 14px; letter-spacing: 3px; }
+  .val.chassis { font-size: 10px; letter-spacing: 0.5px; }
 
   /* ── CABEÇALHO ── */
-  .hdr { border-bottom: 2px solid #222; }
-  .hdr-top { display: flex; align-items: stretch; }
-  .hdr-empresa { flex: 1; padding: 10px 14px; border-right: 1px solid #aaa; }
-  .hdr-empresa-name { font-size: 17px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
-  .hdr-empresa-info { font-size: 10px; color: #555; margin-top: 3px; line-height: 1.5; }
-  .hdr-title { flex: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 14px; text-align: center; border-right: 1px solid #aaa; }
-  .hdr-title-main { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; }
-  .hdr-os { width: 130px; padding: 10px 14px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
-  .hdr-os-num { font-size: 18px; font-weight: bold; }
-  .hdr-os-label { font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
-  .hdr-datetime { font-size: 10px; color: #555; margin-top: 4px; }
-
-  /* ── DADOS ── */
-  .dados { display: flex; border-bottom: 1px solid #bbb; }
-  .dados-col { flex: 1; padding: 8px 12px; }
-  .dados-col + .dados-col { border-left: 1px solid #bbb; }
-  .d-row { display: flex; align-items: baseline; margin-bottom: 4px; gap: 4px; }
-  .d-label { font-size: 9px; color: #777; text-transform: uppercase; white-space: nowrap; min-width: 70px; }
-  .d-value { font-size: 11px; font-weight: 600; flex: 1; border-bottom: 1px dotted #ccc; min-height: 14px; padding-bottom: 1px; }
-  .d-value.plate { font-size: 13px; letter-spacing: 2px; font-weight: bold; }
-  .d-value.chassis { font-size: 10px; letter-spacing: 1px; }
+  .hdr { display: flex; align-items: stretch; border-bottom: 2px solid #333; background: #1a1a1a; color: #fff; }
+  .hdr-emp { flex: 1; padding: 10px 14px; border-right: 1px solid #444; }
+  .hdr-emp-name { font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; }
+  .hdr-emp-info { font-size: 9.5px; color: #ccc; margin-top: 3px; line-height: 1.5; }
+  .hdr-mid { flex: 1.3; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; text-align: center; border-right: 1px solid #444; }
+  .hdr-mid-title { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; }
+  .hdr-mid-sub { font-size: 10px; color: #bbb; margin-top: 2px; letter-spacing: 0.08em; }
+  .hdr-os { width: 120px; padding: 10px 12px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+  .hdr-os-lbl { font-size: 8px; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; }
+  .hdr-os-num { font-size: 20px; font-weight: bold; }
+  .hdr-os-dt { font-size: 9.5px; color: #bbb; margin-top: 3px; }
 
   /* ── SERVIÇOS ── */
-  .srv-section { border-bottom: 1px solid #bbb; }
-  .srv-header { background: #222; color: #fff; padding: 5px 14px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; }
-  .srv-body { min-height: 80px; padding: 10px 14px; }
-  .service-item { font-size: 11px; margin-bottom: 5px; padding-left: 4px; }
+  .srv-hdr { background: #333; color: #fff; padding: 4px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #333; }
+  .srv-body { min-height: 72px; padding: 7px 10px; border-bottom: 1px solid #333; border-right: 1px solid #333; border-left: 1px solid #333; }
+  .svc { font-size: 11px; margin-bottom: 4px; }
 
   /* ── CHECKLIST + MAPA ── */
-  .cl-section { display: flex; border-bottom: 1px solid #bbb; }
-  .cl-left { flex: 1; padding: 8px 12px; border-right: 1px solid #bbb; }
-  .cl-right { width: 220px; padding: 8px 12px; display: flex; flex-direction: column; }
-  .cl-section-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #ddd; letter-spacing: 0.06em; }
-  .cl-groups { display: flex; flex-wrap: wrap; gap: 0 16px; }
-  .cl-group { width: calc(50% - 8px); margin-bottom: 6px; }
-  .cl-group-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #333; background: #f0f0f0; padding: 2px 5px; margin-bottom: 3px; border-left: 2px solid #555; }
-  .cl-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; padding: 1px 4px; }
-  .cl-label { font-size: 10px; color: #333; flex: 1; }
-  .cl-boxes { display: flex; gap: 2px; }
-  .chk-box { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 14px; border: 1px solid #888; font-size: 8px; font-weight: bold; color: #888; border-radius: 2px; }
-  .chk-ok { background: #d4edda; border-color: #27ae60; color: #27ae60; }
-  .chk-df { background: #fff3cd; border-color: #f39c12; color: #c0392b; }
-  .chk-na { background: #e9ecef; border-color: #666; color: #555; }
-  .cl-legend { font-size: 8.5px; color: #777; margin-top: 6px; }
-  .map-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 6px; text-align: center; }
-  .obs-box { border: 1px solid #bbb; min-height: 48px; margin-top: 6px; padding: 4px 6px; font-size: 10px; color: #555; }
-  .obs-label { font-size: 9px; color: #888; margin-bottom: 3px; }
+  .cl-map { display: flex; border-left: 1px solid #333; border-right: 1px solid #333; border-bottom: 1px solid #333; }
+  .cl-col { flex: 1; border-right: 1px solid #333; padding: 6px 8px; }
+  .map-col { width: 215px; padding: 6px 8px; display: flex; flex-direction: column; align-items: center; }
+  .sec-hdr { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #333; background: #eee; padding: 2px 6px; margin-bottom: 5px; border-bottom: 1px solid #ccc; }
+  .cl-legend { font-size: 8px; color: #666; margin-bottom: 5px; }
+  .cl-groups { display: flex; flex-wrap: wrap; gap: 0 12px; }
+  .cl-group { width: calc(50% - 6px); margin-bottom: 5px; }
+  .cl-grp-hdr { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #222; background: #e8e8e8; padding: 1px 4px; margin-bottom: 2px; border-left: 2px solid #444; }
+  .cl-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5px; }
+  .cl-lbl { font-size: 9px; color: #333; flex: 1; }
+  .cl-boxes { display: flex; gap: 1.5px; }
+  .cb { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 12px; border: 1px solid #999; font-size: 7.5px; font-weight: bold; color: #888; }
+  .cb-ok { background: #d4edda; border-color: #27ae60; color: #1e8449; }
+  .cb-df { background: #fff3cd; border-color: #e67e22; color: #c0392b; }
+  .cb-na { background: #e9ecef; border-color: #666; color: #555; }
+  .map-lbl { font-size: 8px; color: #555; text-align: center; margin-bottom: 3px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
+  .obs-area { border: 1px solid #bbb; min-height: 44px; width: 100%; margin-top: 5px; padding: 3px 5px; font-size: 9.5px; color: #888; }
 
-  /* ── TÉCNICO ── */
-  .tec-row { display: flex; align-items: center; gap: 20px; padding: 8px 14px; border-bottom: 1px solid #bbb; }
-  .tec-field { flex: 1; display: flex; align-items: baseline; gap: 6px; }
-  .tec-label { font-size: 9px; color: #777; text-transform: uppercase; white-space: nowrap; }
-  .tec-value { flex: 1; border-bottom: 1px solid #888; font-size: 11px; font-weight: 600; min-height: 16px; padding-bottom: 1px; }
-  .tec-visto { width: 100px; border-bottom: 1px solid #888; min-height: 16px; }
-
-  /* ── DECLARAÇÃO ── */
-  .declaration { padding: 8px 14px; font-size: 9.5px; color: #444; line-height: 1.55; border-bottom: 1px solid #bbb; background: #fafafa; text-align: justify; }
-
-  /* ── ASSINATURA ── */
-  .sig-section { padding: 10px 14px 14px; }
-  .sig-row { display: flex; gap: 20px; margin-bottom: 10px; }
-  .sig-field { flex: 1; }
-  .sig-label { font-size: 9px; color: #777; text-transform: uppercase; margin-bottom: 2px; }
-  .sig-line { border-bottom: 1px solid #333; min-height: 22px; }
-  .sig-line-long { border-bottom: 1px solid #333; min-height: 36px; }
+  /* ── RODAPÉ ── */
+  .ftr-row { display: flex; border-left: 1px solid #333; border-right: 1px solid #333; border-bottom: 1px solid #333; }
+  .ftr-cell { flex: 1; border-right: 1px solid #333; }
+  .ftr-cell:last-child { border-right: none; }
+  .ftr-lbl { font-size: 7.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #555; padding: 2px 5px 1px; background: #f2f2f2; border-bottom: 1px solid #d0d0d0; }
+  .ftr-val { min-height: 20px; padding: 3px 5px 5px; font-size: 11px; }
+  .declaration { padding: 6px 10px; font-size: 9px; color: #444; line-height: 1.6; border-left: 1px solid #333; border-right: 1px solid #333; border-bottom: 1px solid #333; background: #fafafa; text-align: justify; }
+  .sig-area { border-left: 1px solid #333; border-right: 1px solid #333; border-bottom: 2px solid #333; }
+  .sig-row { display: flex; }
+  .sig-cell { flex: 1; border-right: 1px solid #333; }
+  .sig-cell:last-child { border-right: none; }
+  .sig-lbl { font-size: 7.5px; font-weight: bold; text-transform: uppercase; color: #555; padding: 2px 5px 1px; background: #f2f2f2; border-bottom: 1px solid #d0d0d0; }
+  .sig-val { min-height: 32px; padding: 3px 5px; }
 
   @media print {
     body { margin: 0; }
-    .os-wrap { margin: 0; max-width: 100%; border: 2px solid #000; }
-    @page { margin: 8mm; size: A4; }
+    .os-wrap { margin: 0; max-width: 100%; }
+    @page { margin: 6mm; size: A4 portrait; }
   }
 </style>
 </head><body>
 <div class="os-wrap">
 
-  <!-- CABEÇALHO -->
+  <!-- ══ CABEÇALHO ══ -->
   <div class="hdr">
-    <div class="hdr-top">
-      <div class="hdr-empresa">
-        <div class="hdr-empresa-name">${o.tenant?.name ?? 'Estética Automotiva'}</div>
-        <div class="hdr-empresa-info">
-          ${o.tenant?.address ? o.tenant.address + '<br>' : ''}
-          ${o.tenant?.phone ? 'Tel: ' + o.tenant.phone : ''}${o.tenant?.email ? ' &nbsp;|&nbsp; ' + o.tenant.email : ''}
-        </div>
+    <div class="hdr-emp">
+      <div class="hdr-emp-name">${o.tenant?.name ?? 'Estética Automotiva'}</div>
+      <div class="hdr-emp-info">
+        ${o.tenant?.address ?? ''}${o.tenant?.phone ? '<br>Tel: ' + o.tenant.phone : ''}
       </div>
-      <div class="hdr-title">
-        <div class="hdr-title-main">Ordem de Serviço</div>
-        <div style="font-size:10px;color:#555;margin-top:2px">Check-list de Veículo</div>
-      </div>
-      <div class="hdr-os">
-        <div class="hdr-os-label">N° OS</div>
-        <div class="hdr-os-num">${osNum}</div>
-        <div class="hdr-datetime">${dateStr} ${timeStr}</div>
-      </div>
+    </div>
+    <div class="hdr-mid">
+      <div class="hdr-mid-title">Ordem de Serviço</div>
+      <div class="hdr-mid-sub">Check-list de Veículo</div>
+    </div>
+    <div class="hdr-os">
+      <div class="hdr-os-lbl">N° OS</div>
+      <div class="hdr-os-num">${osNum}</div>
+      <div class="hdr-os-dt">${dateStr} — ${timeStr}</div>
     </div>
   </div>
 
-  <!-- DADOS DO CLIENTE / VEÍCULO -->
-  <div class="dados">
-    <div class="dados-col">
-      <div class="d-row"><span class="d-label">Nome:</span><span class="d-value">${o.client?.name ?? ''}</span></div>
-      <div class="d-row"><span class="d-label">Endereço:</span><span class="d-value">${o.tenant?.address ?? ''}</span></div>
-      <div class="d-row"><span class="d-label">Contato:</span><span class="d-value">${o.client?.whatsapp || o.client?.phone || ''}</span></div>
-      <div class="d-row"><span class="d-label">Ponto Ref.:</span><span class="d-value"></span></div>
-      <div class="d-row"><span class="d-label">Observação:</span><span class="d-value">${o.notes ?? ''}</span></div>
-    </div>
-    <div class="dados-col">
-      <div class="d-row"><span class="d-label">N° OS:</span><span class="d-value">${osNum}</span></div>
-      <div class="d-row"><span class="d-label">Placa:</span><span class="d-value plate">${o.vehicle?.plate ?? ''}</span></div>
-      <div class="d-row"><span class="d-label">Chassi:</span><span class="d-value chassis">${o.vehicle?.chassis ?? ''}</span></div>
-      <div class="d-row"><span class="d-label">Veículo:</span><span class="d-value">${(o.vehicle?.brand ?? '') + ' ' + (o.vehicle?.model ?? '')}</span></div>
-      <div class="d-row"><span class="d-label">Ano Fab.:</span><span class="d-value">${o.vehicle?.year ?? ''}</span></div>
-      <div class="d-row"><span class="d-label">Estética:</span><span class="d-value">${o.user?.name ?? ''}</span></div>
-    </div>
-  </div>
+  <!-- ══ DADOS (grid de células estilo CEABS) ══ -->
+  <div class="grid">
 
-  <!-- SERVIÇOS A REALIZAR -->
-  <div class="srv-section">
-    <div class="srv-header">Serviços a Serem Realizados</div>
+    <!-- Linha 1: Nome | N° OS | Data/Hora -->
+    <div class="row">
+      <div class="cell w3"><div class="lbl">Nome do Cliente</div><div class="val">${o.client?.name ?? ''}</div></div>
+      <div class="cell"><div class="lbl">N° OS</div><div class="val">${osNum}</div></div>
+      <div class="cell w2"><div class="lbl">Data / Hora de Atendimento</div><div class="val">${dateStr} &nbsp; ${timeStr}</div></div>
+    </div>
+
+    <!-- Linha 2: Endereço Estética | Placa -->
+    <div class="row">
+      <div class="cell w4"><div class="lbl">Endereço da Estética</div><div class="val">${o.tenant?.address ?? ''}</div></div>
+      <div class="cell w2"><div class="lbl">Placa do Veículo</div><div class="val plate">${o.vehicle?.plate ?? ''}</div></div>
+    </div>
+
+    <!-- Linha 3: Chassi | Veículo/Modelo | Ano -->
+    <div class="row">
+      <div class="cell w3"><div class="lbl">Chassi</div><div class="val chassis">${o.vehicle?.chassis ?? ''}</div></div>
+      <div class="cell w2"><div class="lbl">Veículo / Modelo</div><div class="val">${(o.vehicle?.brand ?? '') + ' ' + (o.vehicle?.model ?? '')}</div></div>
+      <div class="cell"><div class="lbl">Ano Fab.</div><div class="val">${o.vehicle?.year ?? ''}</div></div>
+    </div>
+
+    <!-- Linha 4: Estética/Resp. | Contato Cliente | Telefone -->
+    <div class="row">
+      <div class="cell w2"><div class="lbl">Estética / Responsável</div><div class="val">${o.tenant?.name ?? ''}</div></div>
+      <div class="cell w2"><div class="lbl">Contato do Cliente</div><div class="val">${o.client?.whatsapp || o.client?.phone || ''}</div></div>
+      <div class="cell w2"><div class="lbl">Ponto de Referência</div><div class="val"></div></div>
+    </div>
+
+    <!-- Linha 5: Observação (full width) -->
+    <div class="row">
+      <div class="cell"><div class="lbl">Observação do Cliente</div><div class="val">${o.notes ?? ''}</div></div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- ══ SERVIÇOS A REALIZAR ══ -->
+  <div style="margin-top:4px">
+    <div class="srv-hdr">Serviços a Serem Realizados</div>
     <div class="srv-body">
       ${servicesList}
     </div>
   </div>
 
-  <!-- CHECK-LIST + MAPA DE DANOS -->
-  <div class="cl-section">
-    <div class="cl-left">
-      <div class="cl-section-title">Check-list de Entrada</div>
-      <div style="font-size:8.5px;color:#888;margin-bottom:6px">OK = Conforme &nbsp;&nbsp; DF = Com defeito &nbsp;&nbsp; NA = Não se aplica</div>
+  <!-- ══ CHECK-LIST + MAPA DE DANOS ══ -->
+  <div class="cl-map" style="margin-top:4px">
+    <div class="cl-col">
+      <div class="sec-hdr">Check-list de Entrada</div>
+      <div class="cl-legend">OK = Conforme &nbsp;|&nbsp; DF = Com Defeito &nbsp;|&nbsp; NA = Não se Aplica</div>
       <div class="cl-groups">
         ${checklistGroupsHtml}
       </div>
     </div>
-    <div class="cl-right">
-      <div class="map-title">Mapa de Danos</div>
-      <div style="font-size:8px;color:#888;text-align:center;margin-bottom:3px">Vista Superior</div>
+    <div class="map-col">
+      <div class="sec-hdr" style="width:100%;text-align:center">Mapa de Danos</div>
+      <div class="map-lbl">Vista Superior</div>
       ${topViewSvg}
-      <div style="font-size:8px;color:#888;text-align:center;margin:6px 0 3px">Vista Lateral</div>
+      <div class="map-lbl" style="margin-top:5px">Vista Lateral</div>
       ${sideViewSvg}
-      <div class="obs-label" style="margin-top:8px">Observações:</div>
-      <div class="obs-box"></div>
+      <div style="font-size:8px;color:#777;margin-top:5px;margin-bottom:2px;font-weight:bold;text-transform:uppercase">Observações</div>
+      <div class="obs-area"></div>
     </div>
   </div>
 
-  <!-- TÉCNICO RESPONSÁVEL -->
-  <div class="tec-row">
-    <div class="tec-field">
-      <span class="tec-label">Técnico Responsável:</span>
-      <span class="tec-value">${o.user?.name ?? ''}</span>
-    </div>
-    <div class="tec-field" style="max-width:120px">
-      <span class="tec-label">Visto:</span>
-      <span class="tec-visto"></span>
-    </div>
+  <!-- ══ TÉCNICO / VISTO ══ -->
+  <div class="ftr-row" style="margin-top:4px">
+    <div class="ftr-cell w3"><div class="ftr-lbl">Técnico Responsável</div><div class="ftr-val"></div></div>
+    <div class="ftr-cell"><div class="ftr-lbl">Visto</div><div class="ftr-val"></div></div>
   </div>
 
-  <!-- DECLARAÇÃO -->
+  <!-- ══ DECLARAÇÃO ══ -->
   <div class="declaration">
-    Declaro estar ciente do serviço realizado, e que em caso de dúvida, fui orientado a entrar em contato com
-    <strong>${o.tenant?.name ?? 'a estética'}</strong>. Acompanhei a vistoria feita antes do serviço, estando em pleno acordo com
-    as condições descritas neste documento. O veículo será devolvido nas mesmas condições registradas acima.
+    Declaro estar ciente do serviço realizado, e que em caso de dúvida, fui orientado a entrar em contato com <strong>${o.tenant?.name ?? 'a estética'}</strong>.
+    Acompanhei a vistoria feita antes do serviço, estando em pleno acordo com as condições descritas neste documento.
+    O veículo será devolvido nas mesmas condições registradas acima.
   </div>
 
-  <!-- ASSINATURA -->
-  <div class="sig-section">
+  <!-- ══ ASSINATURA ══ -->
+  <div class="sig-area">
     <div class="sig-row">
-      <div class="sig-field" style="flex:2">
-        <div class="sig-label">Local e Data</div>
-        <div class="sig-line"></div>
-      </div>
+      <div class="sig-cell" style="flex:1"><div class="sig-lbl">Local e Data</div><div class="sig-val"></div></div>
     </div>
     <div class="sig-row">
-      <div class="sig-field" style="flex:2">
-        <div class="sig-label">Nome do Responsável (Cliente)</div>
-        <div class="sig-line"></div>
-      </div>
-      <div class="sig-field">
-        <div class="sig-label">CPF</div>
-        <div class="sig-line">${o.client?.cpf ?? ''}</div>
-      </div>
+      <div class="sig-cell" style="flex:3"><div class="sig-lbl">Nome do Responsável (Cliente)</div><div class="sig-val"></div></div>
+      <div class="sig-cell" style="flex:2"><div class="sig-lbl">CPF</div><div class="sig-val"></div></div>
     </div>
-    <div class="sig-row" style="margin-bottom:0">
-      <div class="sig-field">
-        <div class="sig-label">Assinatura</div>
-        <div class="sig-line-long"></div>
-      </div>
+    <div class="sig-row">
+      <div class="sig-cell"><div class="sig-lbl">Assinatura</div><div class="sig-val" style="min-height:44px"></div></div>
     </div>
   </div>
 
