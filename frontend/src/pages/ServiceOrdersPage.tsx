@@ -245,13 +245,47 @@ function PaymentModal({ order, onClose }: { order: any; onClose: () => void }) {
 
 // ─── CHECKLIST ───────────────────────────────────────────────────────────────
 
-const CHECKLIST_FIELDS = [
-  { key: 'scratches', label: 'Arranhões / riscos' },
-  { key: 'stains', label: 'Manchas / sujeiras' },
-  { key: 'fuelLevel', label: 'Nível de combustível' },
-  { key: 'personalItems', label: 'Objetos pessoais' },
-  { key: 'generalCondition', label: 'Estado geral' },
-  { key: 'observations', label: 'Observações adicionais' },
+const CHECKLIST_GROUPS = [
+  {
+    label: 'Sistema Elétrico',
+    items: [
+      { key: 'el_bateria', label: 'Bateria' },
+      { key: 'el_alternador', label: 'Alternador / Fusíveis' },
+      { key: 'el_buzina', label: 'Buzina' },
+      { key: 'el_vidros', label: 'Vidros Elétricos' },
+      { key: 'el_travas', label: 'Travas Elétricas' },
+    ],
+  },
+  {
+    label: 'Luzes',
+    items: [
+      { key: 'luz_farol_d', label: 'Faróis Dianteiros' },
+      { key: 'luz_farol_t', label: 'Faróis Traseiros' },
+      { key: 'luz_lanterna', label: 'Lanternas' },
+      { key: 'luz_freio', label: 'Luz de Freio' },
+      { key: 'luz_re', label: 'Luz de Ré' },
+      { key: 'luz_seta', label: 'Setas' },
+    ],
+  },
+  {
+    label: 'Acessórios',
+    items: [
+      { key: 'ac_radio', label: 'Rádio / Som' },
+      { key: 'ac_ar', label: 'Ar-Condicionado' },
+      { key: 'ac_tapetes', label: 'Tapetes' },
+      { key: 'ac_estepe', label: 'Estepe' },
+      { key: 'ac_macaco', label: 'Macaco / Chave de Roda' },
+    ],
+  },
+  {
+    label: 'Outros',
+    items: [
+      { key: 'ou_combustivel', label: 'Nível de Combustível' },
+      { key: 'ou_espelhos', label: 'Espelhos Retrovisores' },
+      { key: 'ou_palhetas', label: 'Palhetas / Limpadores' },
+      { key: 'ou_documentos', label: 'Documentos no Veículo' },
+    ],
+  },
 ]
 
 // ─── MAPA DE DANOS ────────────────────────────────────────────────────────────
@@ -463,8 +497,9 @@ function OrderDetailModal({
     if (!order) return
     const o = order
     const pts: DamagePoint[] = damagePoints
+    const checklist = o.checklist ? JSON.parse(o.checklist) : {}
 
-    const carSvg = `<svg viewBox="0 0 160 320" width="130" height="260" style="display:block">
+    const carSvg = `<svg viewBox="0 0 160 320" width="110" height="220" style="display:block;margin:0 auto">
       <text x="80" y="12" text-anchor="middle" font-size="8" fill="#666" font-family="Arial">FRENTE</text>
       <rect x="35" y="16" width="90" height="7" rx="3" fill="#ccc" stroke="#555" stroke-width="1"/>
       <rect x="28" y="23" width="104" height="60" rx="14" fill="#f0f0f0" stroke="#555" stroke-width="1.5"/>
@@ -489,173 +524,236 @@ function OrderDetailModal({
       `).join('')}
     </svg>`
 
-    const services = o.quote?.items ?? []
-    const servicesRows = services.length > 0
-      ? services.map((item: any) => `
-        <tr>
-          <td>${item.service?.name ?? item.description ?? '—'}</td>
-          <td style="text-align:center">${item.quantity ?? 1}</td>
-          <td style="text-align:right">R$ ${Number(item.unitPrice ?? 0).toFixed(2)}</td>
-          <td style="text-align:right">R$ ${Number(item.totalPrice ?? 0).toFixed(2)}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="4" style="text-align:center;color:#888">Serviços não detalhados</td></tr>`
+    // Serviços: da quote ou notes como fallback
+    const quoteItems = o.quote?.items ?? []
+    const servicesList = quoteItems.length > 0
+      ? quoteItems.map((item: any) => `<div class="service-item">• ${item.service?.name ?? item.description ?? '—'}${item.quantity && item.quantity > 1 ? ' (x' + item.quantity + ')' : ''}</div>`).join('')
+      : o.notes
+        ? `<div class="service-item">${o.notes}</div>`
+        : '<div style="color:#aaa;font-style:italic">Nenhum serviço detalhado</div>'
 
-    const checklist = o.checklist ? JSON.parse(o.checklist) : {}
-    const checklistHtml = CHECKLIST_FIELDS
-      .filter((f) => checklist[f.key])
-      .map((f) => `<tr><td style="color:#555">${f.label}</td><td>${checklist[f.key]}</td></tr>`)
-      .join('')
+    // Checklist: gerar HTML com boxes OK/DF/NA
+    const checkBox = (key: string, opt: string) => {
+      const val = (checklist[key] ?? '').toLowerCase()
+      const checked = val === opt
+      return `<span class="chk-box ${checked ? 'chk-' + opt : ''}">${opt.toUpperCase()}</span>`
+    }
+    const checklistGroupsHtml = CHECKLIST_GROUPS.map(group => `
+      <div class="cl-group">
+        <div class="cl-group-title">${group.label}</div>
+        ${group.items.map(item => `
+          <div class="cl-item">
+            <span class="cl-label">${item.label}</span>
+            <span class="cl-boxes">
+              ${checkBox(item.key, 'ok')}
+              ${checkBox(item.key, 'df')}
+              ${checkBox(item.key, 'na')}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('')
 
-    const damageLegende = pts.length > 0
-      ? `<p style="font-size:11px;margin-top:6px;color:#333"><b>Danos registrados:</b> ${pts.map((_, i) => i + 1).join(', ')}</p>`
-      : ''
+    const dateStr = new Date(o.createdAt).toLocaleDateString('pt-BR')
+    const timeStr = new Date(o.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const osNum = String(o.number).padStart(5, '0')
 
-    const win = window.open('', '_blank', 'width=900,height=700')
+    const win = window.open('', '_blank', 'width=900,height=750')
     if (!win) return
     win.document.write(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
-<title>OS #${o.number} — ${o.client?.name}</title>
+<title>OS ${osNum} — ${o.client?.name}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 12px; color: #111; padding: 20px; }
-  .os-wrap { max-width: 800px; margin: 0 auto; border: 2px solid #222; padding: 0; }
-  /* Cabeçalho */
-  .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 16px; border-bottom: 2px solid #222; background: #f8f8f8; }
-  .header-left { flex: 1; }
-  .store-name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
-  .store-info { font-size: 11px; color: #444; line-height: 1.5; }
-  .header-right { text-align: right; }
-  .os-number { font-size: 22px; font-weight: bold; }
-  .os-date { font-size: 11px; color: #555; margin-top: 4px; }
-  /* Seções */
-  .section { display: flex; border-bottom: 1px solid #ccc; }
-  .section-box { flex: 1; padding: 10px 14px; }
-  .section-box + .section-box { border-left: 1px solid #ccc; }
-  .section-title { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #777; margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 3px; }
-  .field { margin-bottom: 4px; }
-  .field-label { font-size: 10px; color: #666; }
-  .field-value { font-size: 12px; font-weight: bold; }
-  /* Tabela de serviços */
-  .services-section { padding: 10px 14px; border-bottom: 1px solid #ccc; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #f0f0f0; border: 1px solid #ccc; padding: 5px 8px; font-size: 11px; text-align: left; }
-  td { border: 1px solid #ddd; padding: 5px 8px; font-size: 11px; }
-  .total-row td { background: #f8f8f8; font-weight: bold; }
-  /* Condição do veículo */
-  .condition-section { display: flex; border-bottom: 1px solid #ccc; }
-  .condition-left { flex: 1; padding: 10px 14px; }
-  .condition-right { width: 160px; padding: 10px 14px; border-left: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; }
-  /* Rodapé assinatura */
-  .footer-section { display: flex; gap: 0; border-top: 1px solid #ccc; }
-  .sig-box { flex: 1; padding: 14px 16px; }
-  .sig-box + .sig-box { border-left: 1px solid #ccc; }
-  .sig-line { border-top: 1px solid #333; margin-top: 40px; padding-top: 4px; font-size: 11px; color: #555; }
-  .disclaimer { font-size: 9.5px; color: #555; padding: 8px 16px; border-top: 1px solid #ccc; line-height: 1.4; text-align: center; background: #f8f8f8; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #111; background: #fff; }
+  .os-wrap { max-width: 780px; margin: 10px auto; border: 2px solid #222; }
+
+  /* ── CABEÇALHO ── */
+  .hdr { border-bottom: 2px solid #222; }
+  .hdr-top { display: flex; align-items: stretch; }
+  .hdr-empresa { flex: 1; padding: 10px 14px; border-right: 1px solid #aaa; }
+  .hdr-empresa-name { font-size: 17px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
+  .hdr-empresa-info { font-size: 10px; color: #555; margin-top: 3px; line-height: 1.5; }
+  .hdr-title { flex: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 14px; text-align: center; border-right: 1px solid #aaa; }
+  .hdr-title-main { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; }
+  .hdr-os { width: 130px; padding: 10px 14px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+  .hdr-os-num { font-size: 18px; font-weight: bold; }
+  .hdr-os-label { font-size: 9px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+  .hdr-datetime { font-size: 10px; color: #555; margin-top: 4px; }
+
+  /* ── DADOS ── */
+  .dados { display: flex; border-bottom: 1px solid #bbb; }
+  .dados-col { flex: 1; padding: 8px 12px; }
+  .dados-col + .dados-col { border-left: 1px solid #bbb; }
+  .d-row { display: flex; align-items: baseline; margin-bottom: 4px; gap: 4px; }
+  .d-label { font-size: 9px; color: #777; text-transform: uppercase; white-space: nowrap; min-width: 70px; }
+  .d-value { font-size: 11px; font-weight: 600; flex: 1; border-bottom: 1px dotted #ccc; min-height: 14px; padding-bottom: 1px; }
+  .d-value.plate { font-size: 13px; letter-spacing: 2px; font-weight: bold; }
+  .d-value.chassis { font-size: 10px; letter-spacing: 1px; }
+
+  /* ── SERVIÇOS ── */
+  .srv-section { border-bottom: 1px solid #bbb; }
+  .srv-header { background: #222; color: #fff; padding: 5px 14px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; }
+  .srv-body { min-height: 80px; padding: 10px 14px; }
+  .service-item { font-size: 11px; margin-bottom: 5px; padding-left: 4px; }
+
+  /* ── CHECKLIST + MAPA ── */
+  .cl-section { display: flex; border-bottom: 1px solid #bbb; }
+  .cl-left { flex: 1; padding: 8px 12px; border-right: 1px solid #bbb; }
+  .cl-right { width: 220px; padding: 8px 12px; display: flex; flex-direction: column; }
+  .cl-section-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #ddd; letter-spacing: 0.06em; }
+  .cl-groups { display: flex; flex-wrap: wrap; gap: 0 16px; }
+  .cl-group { width: calc(50% - 8px); margin-bottom: 6px; }
+  .cl-group-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #333; background: #f0f0f0; padding: 2px 5px; margin-bottom: 3px; border-left: 2px solid #555; }
+  .cl-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; padding: 1px 4px; }
+  .cl-label { font-size: 10px; color: #333; flex: 1; }
+  .cl-boxes { display: flex; gap: 2px; }
+  .chk-box { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 14px; border: 1px solid #888; font-size: 8px; font-weight: bold; color: #888; border-radius: 2px; }
+  .chk-ok { background: #d4edda; border-color: #27ae60; color: #27ae60; }
+  .chk-df { background: #fff3cd; border-color: #f39c12; color: #c0392b; }
+  .chk-na { background: #e9ecef; border-color: #666; color: #555; }
+  .cl-legend { font-size: 8.5px; color: #777; margin-top: 6px; }
+  .map-title { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-bottom: 6px; text-align: center; }
+  .obs-box { border: 1px solid #bbb; min-height: 48px; margin-top: 6px; padding: 4px 6px; font-size: 10px; color: #555; }
+  .obs-label { font-size: 9px; color: #888; margin-bottom: 3px; }
+
+  /* ── TÉCNICO ── */
+  .tec-row { display: flex; align-items: center; gap: 20px; padding: 8px 14px; border-bottom: 1px solid #bbb; }
+  .tec-field { flex: 1; display: flex; align-items: baseline; gap: 6px; }
+  .tec-label { font-size: 9px; color: #777; text-transform: uppercase; white-space: nowrap; }
+  .tec-value { flex: 1; border-bottom: 1px solid #888; font-size: 11px; font-weight: 600; min-height: 16px; padding-bottom: 1px; }
+  .tec-visto { width: 100px; border-bottom: 1px solid #888; min-height: 16px; }
+
+  /* ── DECLARAÇÃO ── */
+  .declaration { padding: 8px 14px; font-size: 9.5px; color: #444; line-height: 1.55; border-bottom: 1px solid #bbb; background: #fafafa; text-align: justify; }
+
+  /* ── ASSINATURA ── */
+  .sig-section { padding: 10px 14px 14px; }
+  .sig-row { display: flex; gap: 20px; margin-bottom: 10px; }
+  .sig-field { flex: 1; }
+  .sig-label { font-size: 9px; color: #777; text-transform: uppercase; margin-bottom: 2px; }
+  .sig-line { border-bottom: 1px solid #333; min-height: 22px; }
+  .sig-line-long { border-bottom: 1px solid #333; min-height: 36px; }
+
   @media print {
-    body { padding: 0; }
-    .os-wrap { border: 2px solid #000; }
-    @page { margin: 10mm; }
+    body { margin: 0; }
+    .os-wrap { margin: 0; max-width: 100%; border: 2px solid #000; }
+    @page { margin: 8mm; size: A4; }
   }
 </style>
 </head><body>
 <div class="os-wrap">
 
   <!-- CABEÇALHO -->
-  <div class="header">
-    <div class="header-left">
-      <div class="store-name">${o.tenant?.name ?? 'Estética Automotiva'}</div>
-      <div class="store-info">
-        ${o.tenant?.address ? o.tenant.address + '<br>' : ''}
-        ${o.tenant?.phone ? 'Tel: ' + o.tenant.phone : ''}
-        ${o.tenant?.email ? ' | ' + o.tenant.email : ''}
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="hdr-empresa">
+        <div class="hdr-empresa-name">${o.tenant?.name ?? 'Estética Automotiva'}</div>
+        <div class="hdr-empresa-info">
+          ${o.tenant?.address ? o.tenant.address + '<br>' : ''}
+          ${o.tenant?.phone ? 'Tel: ' + o.tenant.phone : ''}${o.tenant?.email ? ' &nbsp;|&nbsp; ' + o.tenant.email : ''}
+        </div>
+      </div>
+      <div class="hdr-title">
+        <div class="hdr-title-main">Ordem de Serviço</div>
+        <div style="font-size:10px;color:#555;margin-top:2px">Check-list de Veículo</div>
+      </div>
+      <div class="hdr-os">
+        <div class="hdr-os-label">N° OS</div>
+        <div class="hdr-os-num">${osNum}</div>
+        <div class="hdr-datetime">${dateStr} ${timeStr}</div>
       </div>
     </div>
-    <div class="header-right">
-      <div class="os-number">OS #${String(o.number).padStart(5, '0')}</div>
-      <div class="os-date">Data: ${new Date(o.createdAt).toLocaleDateString('pt-BR')}</div>
-      <div class="os-date">Status: ${o.status === 'open' ? 'Aberta' : o.status === 'in_progress' ? 'Em andamento' : o.status === 'completed' ? 'Concluída' : 'Cancelada'}</div>
+  </div>
+
+  <!-- DADOS DO CLIENTE / VEÍCULO -->
+  <div class="dados">
+    <div class="dados-col">
+      <div class="d-row"><span class="d-label">Nome:</span><span class="d-value">${o.client?.name ?? ''}</span></div>
+      <div class="d-row"><span class="d-label">Endereço:</span><span class="d-value">${o.tenant?.address ?? ''}</span></div>
+      <div class="d-row"><span class="d-label">Contato:</span><span class="d-value">${o.client?.whatsapp || o.client?.phone || ''}</span></div>
+      <div class="d-row"><span class="d-label">Ponto Ref.:</span><span class="d-value"></span></div>
+      <div class="d-row"><span class="d-label">Observação:</span><span class="d-value">${o.notes ?? ''}</span></div>
+    </div>
+    <div class="dados-col">
+      <div class="d-row"><span class="d-label">N° OS:</span><span class="d-value">${osNum}</span></div>
+      <div class="d-row"><span class="d-label">Placa:</span><span class="d-value plate">${o.vehicle?.plate ?? ''}</span></div>
+      <div class="d-row"><span class="d-label">Chassi:</span><span class="d-value chassis">${o.vehicle?.chassis ?? ''}</span></div>
+      <div class="d-row"><span class="d-label">Veículo:</span><span class="d-value">${(o.vehicle?.brand ?? '') + ' ' + (o.vehicle?.model ?? '')}</span></div>
+      <div class="d-row"><span class="d-label">Ano Fab.:</span><span class="d-value">${o.vehicle?.year ?? ''}</span></div>
+      <div class="d-row"><span class="d-label">Estética:</span><span class="d-value">${o.user?.name ?? ''}</span></div>
     </div>
   </div>
 
-  <!-- CLIENTE | VEÍCULO -->
-  <div class="section">
-    <div class="section-box">
-      <div class="section-title">Dados do Cliente</div>
-      <div class="field"><span class="field-label">Nome: </span><span class="field-value">${o.client?.name ?? '—'}</span></div>
-      ${o.client?.cpf ? `<div class="field"><span class="field-label">CPF: </span><span class="field-value">${o.client.cpf}</span></div>` : ''}
-      ${o.client?.rg ? `<div class="field"><span class="field-label">RG: </span><span class="field-value">${o.client.rg}</span></div>` : ''}
-      <div class="field"><span class="field-label">Telefone: </span><span class="field-value">${o.client?.whatsapp || o.client?.phone || '—'}</span></div>
-      ${o.client?.street ? `<div class="field"><span class="field-label">Endereço: </span><span class="field-value">${o.client.street}${o.client.addressNumber ? ', ' + o.client.addressNumber : ''}${o.client.neighborhood ? ' - ' + o.client.neighborhood : ''}${o.client.city ? ', ' + o.client.city : ''}${o.client.state ? '/' + o.client.state : ''}</span></div>` : ''}
-    </div>
-    <div class="section-box">
-      <div class="section-title">Dados do Veículo</div>
-      <div class="field"><span class="field-label">Veículo: </span><span class="field-value">${o.vehicle?.brand ?? ''} ${o.vehicle?.model ?? ''} ${o.vehicle?.year ? '(' + o.vehicle.year + ')' : ''}</span></div>
-      ${o.vehicle?.color ? `<div class="field"><span class="field-label">Cor: </span><span class="field-value">${o.vehicle.color}</span></div>` : ''}
-      ${o.vehicle?.plate ? `<div class="field"><span class="field-label">Placa: </span><span class="field-value" style="font-size:14px;letter-spacing:2px">${o.vehicle.plate}</span></div>` : ''}
-      ${o.vehicle?.chassis ? `<div class="field"><span class="field-label">Chassi: </span><span class="field-value" style="font-size:11px;letter-spacing:1px">${o.vehicle.chassis}</span></div>` : ''}
-      ${o.kmEntry ? `<div class="field"><span class="field-label">KM entrada: </span><span class="field-value">${o.kmEntry.toLocaleString('pt-BR')} km</span></div>` : ''}
-      <div class="field"><span class="field-label">Técnico: </span><span class="field-value">${o.user?.name ?? '—'}</span></div>
+  <!-- SERVIÇOS A REALIZAR -->
+  <div class="srv-section">
+    <div class="srv-header">Serviços a Serem Realizados</div>
+    <div class="srv-body">
+      ${servicesList}
     </div>
   </div>
 
-  <!-- SERVIÇOS -->
-  <div class="services-section">
-    <div class="section-title" style="margin-bottom:8px">Serviços Realizados</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Descrição</th>
-          <th style="width:60px;text-align:center">Qtd</th>
-          <th style="width:100px;text-align:right">Unit.</th>
-          <th style="width:100px;text-align:right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${servicesRows}
-      </tbody>
-      <tfoot>
-        <tr class="total-row">
-          <td colspan="3" style="text-align:right">TOTAL</td>
-          <td style="text-align:right">R$ ${Number(o.finalValue).toFixed(2)}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <!-- CONDIÇÃO DO VEÍCULO + MAPA DE DANOS -->
-  <div class="condition-section">
-    <div class="condition-left">
-      <div class="section-title">Condição do Veículo na Entrada</div>
-      ${o.notes ? `<div class="field" style="margin-bottom:8px"><span class="field-label">Observações: </span>${o.notes}</div>` : ''}
-      ${checklistHtml ? `<table style="margin-top:6px"><tbody>${checklistHtml}</tbody></table>` : '<p style="color:#888;font-size:11px">Nenhuma observação registrada.</p>'}
+  <!-- CHECK-LIST + MAPA DE DANOS -->
+  <div class="cl-section">
+    <div class="cl-left">
+      <div class="cl-section-title">Check-list de Entrada</div>
+      <div style="font-size:8.5px;color:#888;margin-bottom:6px">OK = Conforme &nbsp;&nbsp; DF = Com defeito &nbsp;&nbsp; NA = Não se aplica</div>
+      <div class="cl-groups">
+        ${checklistGroupsHtml}
+      </div>
     </div>
-    <div class="condition-right">
-      <div class="section-title" style="text-align:center">Mapa de Danos</div>
+    <div class="cl-right">
+      <div class="map-title">Mapa de Danos</div>
       ${carSvg}
-      ${damageLegende}
+      <div class="obs-label" style="margin-top:6px">Observações:</div>
+      <div class="obs-box"></div>
     </div>
   </div>
 
-  <!-- ASSINATURA -->
-  <div class="footer-section">
-    <div class="sig-box">
-      <div style="font-size:11px;color:#555;margin-bottom:2px">Técnico Responsável</div>
-      <div class="sig-line">${o.user?.name ?? ''}</div>
+  <!-- TÉCNICO RESPONSÁVEL -->
+  <div class="tec-row">
+    <div class="tec-field">
+      <span class="tec-label">Técnico Responsável:</span>
+      <span class="tec-value">${o.user?.name ?? ''}</span>
     </div>
-    <div class="sig-box">
-      <div style="font-size:11px;color:#555;margin-bottom:2px">Assinatura do Cliente</div>
-      <div style="font-size:10px;color:#777;margin-bottom:2px">
-        ${o.client?.cpf ? 'CPF: ' + o.client.cpf : o.client?.rg ? 'RG: ' + o.client.rg : ''}
-      </div>
-      <div class="sig-line"></div>
+    <div class="tec-field" style="max-width:120px">
+      <span class="tec-label">Visto:</span>
+      <span class="tec-visto"></span>
     </div>
   </div>
 
   <!-- DECLARAÇÃO -->
-  <div class="disclaimer">
-    Declaro que li e concordo com os termos do serviço. O veículo será entregue nas condições descritas acima.<br>
-    Data: ____/____/________
+  <div class="declaration">
+    Declaro estar ciente do serviço realizado, e que em caso de dúvida, fui orientado a entrar em contato com
+    <strong>${o.tenant?.name ?? 'a estética'}</strong>. Acompanhei a vistoria feita antes do serviço, estando em pleno acordo com
+    as condições descritas neste documento. O veículo será devolvido nas mesmas condições registradas acima.
+  </div>
+
+  <!-- ASSINATURA -->
+  <div class="sig-section">
+    <div class="sig-row">
+      <div class="sig-field" style="flex:2">
+        <div class="sig-label">Local e Data</div>
+        <div class="sig-line"></div>
+      </div>
+    </div>
+    <div class="sig-row">
+      <div class="sig-field" style="flex:2">
+        <div class="sig-label">Nome do Responsável (Cliente)</div>
+        <div class="sig-line"></div>
+      </div>
+      <div class="sig-field">
+        <div class="sig-label">CPF</div>
+        <div class="sig-line">${o.client?.cpf ?? ''}</div>
+      </div>
+    </div>
+    <div class="sig-row" style="margin-bottom:0">
+      <div class="sig-field">
+        <div class="sig-label">Assinatura</div>
+        <div class="sig-line-long"></div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -917,7 +1015,10 @@ function OrderDetailModal({
               {/* Checklist */}
               <div>
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Checklist de entrada</h3>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Check-list de entrada</h3>
+                    <p className="text-xs text-muted-foreground">OK = Conforme &nbsp; DF = Com defeito &nbsp; NA = Não se aplica</p>
+                  </div>
                   {checklistEdit ? (
                     <div className="flex gap-2">
                       <button onClick={() => setChecklistEdit(null)} className="rounded-lg border px-3 py-1 text-xs hover:bg-muted">Cancelar</button>
@@ -936,20 +1037,51 @@ function OrderDetailModal({
                     </button>
                   )}
                 </div>
-                <div className="rounded-xl border divide-y">
-                  {CHECKLIST_FIELDS.map(({ key, label }) => (
-                    <div key={key} className="flex items-start gap-3 px-4 py-2.5">
-                      <p className="w-36 shrink-0 text-xs font-medium text-muted-foreground pt-1">{label}</p>
-                      {checklistEdit ? (
-                        <input
-                          value={checklistEdit[key] ?? ''}
-                          onChange={(e) => setChecklistEdit((prev) => ({ ...prev!, [key]: e.target.value }))}
-                          className="flex-1 rounded border border-input px-2 py-1 text-sm outline-none focus:border-primary"
-                          placeholder="—"
-                        />
-                      ) : (
-                        <p className="text-sm text-foreground">{checklist[key] || <span className="text-muted-foreground">—</span>}</p>
-                      )}
+                <div className="space-y-3">
+                  {CHECKLIST_GROUPS.map((group) => (
+                    <div key={group.label} className="rounded-xl border overflow-hidden">
+                      <div className="bg-muted/60 px-4 py-2 text-xs font-semibold text-foreground uppercase tracking-wide border-b">
+                        {group.label}
+                      </div>
+                      <div className="divide-y">
+                        {group.items.map(({ key, label }) => {
+                          const val = (checklistEdit ? checklistEdit[key] : checklist[key]) ?? ''
+                          return (
+                            <div key={key} className="flex items-center justify-between px-4 py-2">
+                              <p className="text-xs text-foreground">{label}</p>
+                              {checklistEdit ? (
+                                <div className="flex gap-1">
+                                  {(['ok', 'df', 'na'] as const).map((opt) => (
+                                    <button
+                                      key={opt}
+                                      onClick={() => setChecklistEdit((prev) => ({ ...prev!, [key]: prev![key] === opt ? '' : opt }))}
+                                      className={cn(
+                                        'w-8 rounded border py-0.5 text-xs font-bold transition-colors',
+                                        val === opt && opt === 'ok' && 'border-green-500 bg-green-100 text-green-700',
+                                        val === opt && opt === 'df' && 'border-orange-400 bg-orange-100 text-orange-700',
+                                        val === opt && opt === 'na' && 'border-slate-400 bg-slate-100 text-slate-600',
+                                        val !== opt && 'border-input text-muted-foreground hover:bg-muted',
+                                      )}
+                                    >
+                                      {opt.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className={cn(
+                                  'rounded px-2 py-0.5 text-xs font-bold',
+                                  val === 'ok' && 'bg-green-100 text-green-700',
+                                  val === 'df' && 'bg-orange-100 text-orange-700',
+                                  val === 'na' && 'bg-slate-100 text-slate-600',
+                                  !val && 'text-muted-foreground',
+                                )}>
+                                  {val ? val.toUpperCase() : '—'}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
